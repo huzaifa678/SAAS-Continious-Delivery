@@ -1,0 +1,5 @@
+global:
+  environment: staging
+
+opentelemetry-collector:
+  mode: daemonset
