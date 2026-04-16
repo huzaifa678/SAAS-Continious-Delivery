@@ -5,6 +5,7 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/refresh: hard
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
 
