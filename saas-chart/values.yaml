@@ -1,1 +1,5 @@
+global:
+  environment: dev   
 
+opentelemetry-collector:
+  mode: daemonset
