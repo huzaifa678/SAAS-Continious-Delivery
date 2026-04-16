@@ -1,15 +1,1 @@
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "saas-chart.fullname" . }}
-  labels:
-    {{- include "saas-chart.labels" . | nindent 4 }}
-spec:
-  type: {{ .Values.service.type }}
-  ports:
-    - port: {{ .Values.service.port }}
-      targetPort: http
-      protocol: TCP
-      name: http
-  selector:
-    {{- include "saas-chart.selectorLabels" . | nindent 4 }}
+
