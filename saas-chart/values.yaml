@@ -51,6 +51,9 @@ opentelemetry-collector:
       otlphttp/logstash:
         endpoint: http://logstash:5000
 
+      prometheus:
+        endpoint: "0.0.0.0:8889"
+
       {{- else }}
 
       otlp/tempo:
@@ -66,10 +69,10 @@ opentelemetry-collector:
       debug:
         verbosity: detailed
 
-      {{- end }}
-
       prometheus:
         endpoint: localhost:8889
+
+      {{- end }}
 
     service:
       pipelines:
@@ -93,7 +96,7 @@ opentelemetry-collector:
           receivers: [otlp]
           processors:
             {{- if eq .Values.global.environment "staging" }}
-            [resource, transform/logs, batch]
+            [transform/logs, batch]
             {{- else }}
             [resource, batch]
             {{- end }}
