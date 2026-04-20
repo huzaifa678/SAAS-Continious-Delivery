@@ -2,4 +2,5 @@ global:
   environment: dev
 
 opentelemetry-collector:
+  enabled: true
   mode: daemonset

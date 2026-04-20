@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+
+  source:
+    repoURL: oci://quay.io/jetstack/charts
+    chart: cert-manager
+    targetRevision: v1.18.2
+    helm:
+      releaseName: cert-manager
+      parameters:
+        - name: crds.enabled
+          value: "true"
+        - name: serviceAccount.create
+          value: "true"
+        - name: serviceAccount.name
+          value: cert-manager
+        - name: config.enableGatewayAPI
+          value: "true"
+        - name: startupapicheck.enabled
+          value: "false"
+        # IRSA role ARN injected by Terraform (argo-cert-manager.yaml.tpl)
+        - name: serviceAccount.annotations.eks\.amazonaws\.com/role-arn
+          value: ""  # managed by Terraform templatefile — do not edit here
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  acme:
+    email: huzaifagill411@gmail.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-private-key
+    solvers:
+      - dns01:
+          route53:
+            region: us-east-1

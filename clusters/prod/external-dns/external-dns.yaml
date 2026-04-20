@@ -1,0 +1,55 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-dns
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+
+  source:
+    repoURL: https://kubernetes-sigs.github.io/external-dns/
+    chart: external-dns
+    targetRevision: "*"
+    helm:
+      releaseName: external-dns
+      parameters:
+        - name: provider.name
+          value: aws
+        - name: provider.aws.zoneType
+          value: public
+        - name: policy
+          value: sync
+        - name: registry
+          value: txt
+        - name: txtOwnerId
+          value: argocd
+        - name: serviceAccount.create
+          value: "true"
+        - name: serviceAccount.name
+          value: external-dns
+        - name: rbac.create
+          value: "true"
+        - name: sources[0]
+          value: gateway-httproute
+        - name: sources[1]
+          value: gateway-grpcroute
+        - name: managedRecordTypes[0]
+          value: CNAME
+        - name: managedRecordTypes[1]
+          value: A
+        - name: serviceAccount.annotations.eks\.amazonaws\.com/role-arn
+          value: ""  # managed by Terraform templatefile 
+          
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-dns
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true

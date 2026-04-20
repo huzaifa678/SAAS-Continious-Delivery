@@ -1,5 +1,5 @@
 global:
-  environment: staging
+  environment: prod
 
 opentelemetry-collector:
   enabled: false

@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: platform-root
+  name: platform-root-prod
   namespace: argocd
 spec:
   project: default
@@ -9,7 +9,7 @@ spec:
   source:
     repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
     targetRevision: main
-    path: clusters/dev   # overridden per cluster by Terraform (argo-saas.yaml.tpl)
+    path: clusters/prod
 
   destination:
     server: https://kubernetes.default.svc
