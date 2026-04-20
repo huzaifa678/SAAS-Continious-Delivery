@@ -9,7 +9,7 @@ spec:
   source:
     repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
     targetRevision: main
-    path: clusters/prod
+    path: manifests/base/overlays/prod
 
   destination:
     server: https://kubernetes.default.svc
