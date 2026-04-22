@@ -1,0 +1,5 @@
+global:
+  environment: test
+
+opentelemetry-collector:
+  enabled: false
