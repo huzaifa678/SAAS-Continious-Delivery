@@ -24,16 +24,6 @@ domainName:
 
 apiService: saas-api-service
 
-livenessProbe:
-  path: /healthz
-  initialDelaySeconds: 60
-  periodSeconds: 10
-
-readinessProbe:
-  path: /healthz
-  initialDelaySeconds: 30
-  periodSeconds: 5
-
 image:
   api-gateway: ""
   auth-service: ""
@@ -45,20 +35,52 @@ apiGateway:
   replicas: 2
   port: 9000
   keycloakJWKSURL: "http://keycloak.keycloak.svc.cluster.local:8080/realms/saas/protocol/openid-connect/certs"
+  livenessProbe:
+    path: /healthz/live
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readinessProbe:
+    path: /healthz/ready
+    initialDelaySeconds: 5
+    periodSeconds: 5
 
 services:
   auth:
     name: auth-service
     port: 8080
     replicas: 2
+    livenessProbe:
+      path: /healthz/live
+      initialDelaySeconds: 15
+      periodSeconds: 10
+    readinessProbe:
+      path: /healthz/ready
+      initialDelaySeconds: 10
+      periodSeconds: 5
   subscription:
     name: subscription-service
     port: 8081
     replicas: 2
+    livenessProbe:
+      path: /healthz/live
+      initialDelaySeconds: 20
+      periodSeconds: 10
+    readinessProbe:
+      path: /healthz/ready
+      initialDelaySeconds: 15
+      periodSeconds: 5
   billing:
     name: billing-service
     port: 8082
     replicas: 2
+    livenessProbe:
+      path: /healthz/live
+      initialDelaySeconds: 60
+      periodSeconds: 10
+    readinessProbe:
+      path: /healthz/ready
+      initialDelaySeconds: 30
+      periodSeconds: 5
   usage:
     name: usage-service
     port: 8083

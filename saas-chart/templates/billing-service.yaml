@@ -30,18 +30,18 @@ spec:
           name: http
         livenessProbe:
           httpGet:
-            path: {{ .Values.livenessProbe.path }}
+            path: {{ .Values.services.billing.livenessProbe.path }}
             port: {{ .Values.services.billing.port }}
-          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          initialDelaySeconds: {{ .Values.services.billing.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.services.billing.livenessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
         readinessProbe:
           httpGet:
-            path: {{ .Values.readinessProbe.path }}
+            path: {{ .Values.services.billing.readinessProbe.path }}
             port: {{ .Values.services.billing.port }}
-          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          initialDelaySeconds: {{ .Values.services.billing.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.services.billing.readinessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
 ---

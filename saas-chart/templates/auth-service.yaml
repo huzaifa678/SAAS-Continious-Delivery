@@ -31,18 +31,18 @@ spec:
           name: http
         livenessProbe:
           httpGet:
-            path: {{ .Values.livenessProbe.path }}
+            path: {{ .Values.services.auth.livenessProbe.path }}
             port: {{ .Values.services.auth.port }}
-          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          initialDelaySeconds: {{ .Values.services.auth.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.services.auth.livenessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
         readinessProbe:
           httpGet:
-            path: {{ .Values.readinessProbe.path }}
+            path: {{ .Values.services.auth.readinessProbe.path }}
             port: {{ .Values.services.auth.port }}
-          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          initialDelaySeconds: {{ .Values.services.auth.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.services.auth.readinessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
 {{- end }}

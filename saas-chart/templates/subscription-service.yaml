@@ -32,18 +32,18 @@ spec:
           name: grpc
         livenessProbe:
           httpGet:
-            path: {{ .Values.livenessProbe.path }}
+            path: {{ .Values.services.subscription.livenessProbe.path }}
             port: {{ .Values.services.subscription.port }}
-          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          initialDelaySeconds: {{ .Values.services.subscription.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.services.subscription.livenessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
         readinessProbe:
           httpGet:
-            path: {{ .Values.readinessProbe.path }}
+            path: {{ .Values.services.subscription.readinessProbe.path }}
             port: {{ .Values.services.subscription.port }}
-          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          initialDelaySeconds: {{ .Values.services.subscription.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.services.subscription.readinessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
 ---

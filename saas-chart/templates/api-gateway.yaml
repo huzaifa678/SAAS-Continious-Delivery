@@ -41,18 +41,18 @@ spec:
           value: {{ .Values.apiGateway.keycloakJWKSURL | quote }}
         livenessProbe:
           httpGet:
-            path: {{ .Values.livenessProbe.path }}
+            path: {{ .Values.apiGateway.livenessProbe.path }}
             port: {{ .Values.apiGateway.port }}
-          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          initialDelaySeconds: {{ .Values.apiGateway.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.apiGateway.livenessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
         readinessProbe:
           httpGet:
-            path: {{ .Values.readinessProbe.path }}
+            path: {{ .Values.apiGateway.readinessProbe.path }}
             port: {{ .Values.apiGateway.port }}
-          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          initialDelaySeconds: {{ .Values.apiGateway.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.apiGateway.readinessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
 ---
