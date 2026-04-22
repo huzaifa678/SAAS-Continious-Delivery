@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  labels:
+    app: api-gateway
+spec:
+  replicas: {{ .Values.apiGateway.replicas }}
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+      - name: api-gateway
+        image: {{ .Values.image.api-gateway }}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: {{ .Values.apiGateway.port }}
+          name: http
+        env:
+        - name: GATEWAY_SERVICES_AUTH_URL
+          value: "http://{{ .Values.services.auth.name }}.{{ .Release.Namespace }}.svc.cluster.local"
+        - name: GATEWAY_SERVICES_SUBSCRIPTION_URL
+          value: "http://{{ .Values.services.subscription.name }}.{{ .Release.Namespace }}.svc.cluster.local"
+        - name: GATEWAY_SERVICES_BILLING_URL
+          value: "http://{{ .Values.services.billing.name }}.{{ .Release.Namespace }}.svc.cluster.local"
+        - name: GATEWAY_APP_PORT
+          value: {{ .Values.apiGateway.port | quote }}
+        - name: GATEWAY_REDIS_URL
+          value: {{ .Values.apiGateway.redisURL | quote }}
+        - name: GATEWAY_KEYCLOAK_JWKSURL
+          value: {{ .Values.apiGateway.keycloakJWKSURL | quote }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.livenessProbe.path }}
+            port: {{ .Values.apiGateway.port }}
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          failureThreshold: 3
+          timeoutSeconds: 1
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.readinessProbe.path }}
+            port: {{ .Values.apiGateway.port }}
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          failureThreshold: 3
+          timeoutSeconds: 1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.apiService }}
+spec:
+  selector:
+    app: api-gateway
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: http
+    name: http
+  type: ClusterIP

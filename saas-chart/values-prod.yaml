@@ -1,5 +1,62 @@
 global:
   environment: prod
 
+layer: auth
+
 opentelemetry-collector:
   enabled: false
+
+appName: saas
+gatewayClass: nginx
+
+tlsSecretName:
+  http: saas-app-api-tls
+
+gateway:
+  nlbTarget: ""
+
+domainName:
+  http: ""
+
+apiService: saas-api-service
+
+livenessProbe:
+  path: /healthz
+  initialDelaySeconds: 60
+  periodSeconds: 10
+
+readinessProbe:
+  path: /healthz
+  initialDelaySeconds: 30
+  periodSeconds: 5
+
+image:
+  api-gateway: ""
+  auth-service: ""
+  subscription-service: ""
+  billing-service: ""
+  usage-service: ""
+
+apiGateway:
+  replicas: 2
+  port: 9000
+  redisURL: "redis:6379"
+  keycloakJWKSURL: "http://keycloak.keycloak.svc.cluster.local:8080/realms/saas/protocol/openid-connect/certs"
+
+services:
+  auth:
+    name: auth-service
+    port: 8080
+    replicas: 2
+  subscription:
+    name: subscription-service
+    port: 8081
+    replicas: 2
+  billing:
+    name: billing-service
+    port: 8082
+    replicas: 2
+  usage:
+    name: usage-service
+    port: 8083
+    replicas: 1

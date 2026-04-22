@@ -1,1 +1,7 @@
-
+{{- /* Service resources are defined inline in each service template file:
+     - api-gateway.yaml    -> saas-api-service (ClusterIP, port 80 -> 9000)
+     - auth-service.yaml   -> auth-service     (ClusterIP, port 80 -> 8080)
+     - subscription-service.yaml -> subscription-service (ClusterIP, port 80 -> 8081, 50051 -> 50051)
+     - billing-service.yaml -> billing-service  (ClusterIP, port 80 -> 8082)
+     - usage-service.yaml  -> usage-service    (ClusterIP, port 80 -> 8083)
+*/ -}}

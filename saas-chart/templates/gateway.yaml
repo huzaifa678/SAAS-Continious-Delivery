@@ -1,0 +1,23 @@
+{{- if and .Values.gateway.enabled (eq .Values.environment "post-test") }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.appName }}-gateway
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    external-dns.alpha.kubernetes.io/target: {{ .Values.gateway.nlbTarget | quote }}
+spec:
+  gatewayClassName: {{ .Values.gatewayClass }}
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: {{ .Values.domainName.http }}
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: {{ .Values.domainName.http }}
+      tls:
+        certificateRefs:
+          - name: {{ .Values.tlsSecretName.http }}
+{{- end }}
