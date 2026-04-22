@@ -31,10 +31,12 @@ spec:
           value: "false"
         - name: workers.replicas
           value: "1"
-        - name: ingress.enabled
-          value: "true"
-        - name: ingress.className
-          value: nginx
+        - name: ingress.web.enabled
+          value: false 
+        - name: ingress.apiServer.enabled
+          value: false 
+        - name: ingress.flower.enabled
+          value: false
         - name: ingress.web.hosts[0].host
           value: airflow.local
         - name: ingress.web.hosts[0].paths[0].path
