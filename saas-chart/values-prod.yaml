@@ -44,7 +44,6 @@ image:
 apiGateway:
   replicas: 2
   port: 9000
-  redisURL: "redis:6379"
   keycloakJWKSURL: "http://keycloak.keycloak.svc.cluster.local:8080/realms/saas/protocol/openid-connect/certs"
 
 services:

@@ -37,8 +37,6 @@ spec:
           value: "http://{{ .Values.services.billing.name }}.{{ .Release.Namespace }}.svc.cluster.local"
         - name: GATEWAY_APP_PORT
           value: {{ .Values.apiGateway.port | quote }}
-        - name: GATEWAY_REDIS_URL
-          value: {{ .Values.apiGateway.redisURL | quote }}
         - name: GATEWAY_KEYCLOAK_JWKSURL
           value: {{ .Values.apiGateway.keycloakJWKSURL | quote }}
         livenessProbe:
