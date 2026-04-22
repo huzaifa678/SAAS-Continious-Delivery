@@ -1,6 +1,10 @@
 global:
   environment: dev   #default config
 
+istio:
+  enabled: false
+  revision: ""  # e.g. "1-21" for canary upgrades; empty = default label
+
 opentelemetry-collector:
   mode: daemonset
 

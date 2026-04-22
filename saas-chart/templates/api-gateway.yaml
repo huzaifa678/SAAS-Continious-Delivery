@@ -13,6 +13,13 @@ spec:
     metadata:
       labels:
         app: api-gateway
+      {{- if .Values.istio.enabled }}
+      annotations:
+        sidecar.istio.io/inject: "true"
+        {{- if .Values.istio.revision }}
+        istio.io/rev: {{ .Values.istio.revision | quote }}
+        {{- end }}
+      {{- end }}
     spec:
       containers:
       - name: api-gateway

@@ -1,6 +1,10 @@
 global:
   environment: prod
 
+istio:
+  enabled: true
+  revision: ""
+
 layer: auth
 
 opentelemetry-collector:
