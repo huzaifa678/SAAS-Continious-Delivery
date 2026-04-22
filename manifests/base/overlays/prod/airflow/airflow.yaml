@@ -37,12 +37,6 @@ spec:
           value: false 
         - name: ingress.flower.enabled
           value: false
-        - name: ingress.web.hosts[0].host
-          value: airflow.local
-        - name: ingress.web.hosts[0].paths[0].path
-          value: /
-        - name: ingress.web.hosts[0].paths[0].pathType
-          value: Prefix
 
   destination:
     server: https://kubernetes.default.svc
