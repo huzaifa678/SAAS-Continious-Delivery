@@ -64,7 +64,7 @@ metadata:
 spec:
   parentRefs:
     - name: keycloak-gateway
-  hostnames: keycloak.internal 
+  hostnames: keycloak.saas.internal 
   rules:
     - backendRefs:
         - name: keycloak
