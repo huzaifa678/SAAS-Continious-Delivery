@@ -8,3 +8,6 @@ resources:
   - keycloak/deployment.yaml
   - keycloak/service.yaml
   - keycloak/keycloak-app.yaml
+  - airflow/airflow.yaml
+  - airflow/deployment.yaml
+  - airflow/service.yaml
