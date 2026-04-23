@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keycloak-helm
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://charts.bitnami.com/bitnami
+    chart: keycloak
+    targetRevision: "*"
+    helm:
+      releaseName: keycloak
+      parameters:
+        - name: auth.adminUser
+          value: admin
+        - name: externalDatabase.host
+          value: "keycloak-postgres.keycloak.svc.cluster.local"
+        - name: externalDatabase.port
+          value: "5432"
+        - name: externalDatabase.database
+          value: keycloak_db
+        - name: externalDatabase.user
+          value: keycloak_user
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keycloak
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
