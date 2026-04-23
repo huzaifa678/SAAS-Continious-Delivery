@@ -4,7 +4,7 @@ global:
 opentelemetry-collector:
   enabled: true
   mode: daemonset
-  
+
   config:
     receivers:
       otlp:
@@ -108,3 +108,92 @@ opentelemetry-collector:
             [debug, otlphttp/loki]
             {{- end }}
 
+istio:
+  enabled: true
+  revision: ""
+
+layer: auth
+
+appName: saas
+gatewayClass: nginx
+
+tlsSecretName:
+  http: saas-app-api-tls
+
+gateway:
+  nlbTarget: ""
+
+domainName:
+  http: ""
+
+apiService: saas-api-service
+
+image:
+  apiGateway: "huzaifagill234/api-gateway:dev"
+  authService: "huzaifagill234/auth-service:dev"
+  subscriptionService: "huzaifagill234/subscription-service:dev"
+  billingService: "huzaifagill234/billing-service:dev"
+  usageService: "huzaifagill234/usage-service:dev"
+
+apiGateway:
+  replicas: 2
+  port: 9000
+  keycloakJWKSURL: "http://keycloak.keycloak.svc.cluster.local:8080/realms/saas/protocol/openid-connect/certs"
+  livenessProbe:
+    path: /healthz/live
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readinessProbe:
+    path: /healthz/ready
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+services:
+  auth:
+    name: auth-service
+    port: 8080
+    replicas: 2
+    livenessProbe:
+      path: /healthz/live
+      initialDelaySeconds: 15
+      periodSeconds: 10
+    readinessProbe:
+      path: /healthz/ready
+      initialDelaySeconds: 10
+      periodSeconds: 5
+  subscription:
+    name: subscription-service
+    port: 8081
+    replicas: 2
+    livenessProbe:
+      path: /healthz/live
+      initialDelaySeconds: 20
+      periodSeconds: 10
+    readinessProbe:
+      path: /healthz/ready
+      initialDelaySeconds: 15
+      periodSeconds: 5
+  billing:
+    name: billing-service
+    port: 8082
+    replicas: 2
+    livenessProbe:
+      path: /healthz/live
+      initialDelaySeconds: 60
+      periodSeconds: 10
+    readinessProbe:
+      path: /healthz/ready
+      initialDelaySeconds: 30
+      periodSeconds: 5
+  usage:
+    name: usage-service
+    port: 8083
+    replicas: 2
+    livenessProbe:
+      path: /healthz/live
+      initialDelaySeconds: 60
+      periodSeconds: 10
+    readinessProbe:
+      path: /healthz/ready
+      initialDelaySeconds: 30
+      periodSeconds: 5

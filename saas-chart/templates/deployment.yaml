@@ -16,28 +16,26 @@ spec:
     spec:
       containers:
       - name: {{ .Values.appName }}
-        image: {{ .Values.image.api-gateway }}
+        image: {{ .Values.image.apiGateway }}
         imagePullPolicy: Always
         ports:
         - containerPort: 8081
           name: http-server
-        - containerPort: 9090
-          name: grpc-server
         livenessProbe:
           httpGet:
-            path: {{ .Values.livenessProbe.path }}
+            path: {{ .Values.apiGateway.livenessProbe.path }}
             port: 9000
-          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          initialDelaySeconds: {{ .Values.apiGateway.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.apiGateway.livenessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
 
         readinessProbe:
           httpGet:
-            path: {{ .Values.readinessProbe.path }}
+            path: {{ .Values.apiGateway.readinessProbe.path }}
             port: 9000
-          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          initialDelaySeconds: {{ .Values.apiGateway.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.apiGateway.readinessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
 

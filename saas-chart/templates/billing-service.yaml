@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
       - name: billing-service
-        image: {{ .Values.image.billing-service }}
+        image: {{ .Values.image.billingService }}
         imagePullPolicy: Always
         ports:
         - containerPort: {{ .Values.services.billing.port }}

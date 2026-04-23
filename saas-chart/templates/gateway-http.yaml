@@ -15,4 +15,3 @@ spec:
       backendRefs:
         - name: {{ .Values.apiService }}
           port: 80
-{{- end }}

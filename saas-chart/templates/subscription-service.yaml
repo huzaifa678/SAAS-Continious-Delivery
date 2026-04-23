@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
       - name: subscription-service
-        image: {{ .Values.image.subscription-service }}
+        image: {{ .Values.image.subscriptionService }}
         imagePullPolicy: Always
         ports:
         - containerPort: {{ .Values.services.subscription.port }}

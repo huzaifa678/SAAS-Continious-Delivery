@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "saas-chart.fullname" . }}-gateway-test"
+  labels:
+    app.kubernetes.io/name: api-gateway-test
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: curl
+      image: curlimages/curl:8.5.0
+      command: ['sh', '-c']
+      args:
+        - >
+          echo "Testing API Gateway";
+          curl -f http://{{ .Values.apiService }}.{{ .Release.Namespace }}.svc.cluster.local/health || exit 1;
+          echo "Gateway OK";
+  restartPolicy: Never

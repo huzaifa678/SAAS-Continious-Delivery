@@ -23,25 +23,25 @@ spec:
     spec:
       containers:
       - name: usage-service
-        image: {{ .Values.image.usage-service }}
+        image: {{ .Values.image.usageService }}
         imagePullPolicy: Always
         ports:
         - containerPort: {{ .Values.services.usage.port }}
           name: http
         livenessProbe:
           httpGet:
-            path: {{ .Values.livenessProbe.path }}
+            path: {{ .Values.services.usage.livenessProbe.path }}
             port: {{ .Values.services.usage.port }}
-          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          initialDelaySeconds: {{ .Values.services.usage.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.services.usage.livenessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
         readinessProbe:
           httpGet:
-            path: {{ .Values.readinessProbe.path }}
+            path: {{ .Values.services.usage.readinessProbe.path }}
             port: {{ .Values.services.usage.port }}
-          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          initialDelaySeconds: {{ .Values.services.usage.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.services.usage.readinessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
 ---

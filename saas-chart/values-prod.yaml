@@ -25,11 +25,11 @@ domainName:
 apiService: saas-api-service
 
 image:
-  api-gateway: ""
-  auth-service: ""
-  subscription-service: ""
-  billing-service: ""
-  usage-service: ""
+  apiGateway: ""
+  authService: ""
+  subscriptionService: ""
+  billingService: ""
+  usageService: ""
 
 apiGateway:
   replicas: 2
@@ -84,4 +84,12 @@ services:
   usage:
     name: usage-service
     port: 8083
-    replicas: 1
+    replicas: 2
+    livenessProbe:
+      path: /healthz/live
+      initialDelaySeconds: 60
+      periodSeconds: 10
+    readinessProbe:
+      path: /healthz/ready
+      initialDelaySeconds: 30
+      periodSeconds: 5
