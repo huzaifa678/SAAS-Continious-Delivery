@@ -9,34 +9,16 @@ spec:
   project: default
 
   source:
-    repoURL: https://airflow-helm.github.io/charts
-    chart: airflow
-    targetRevision: "*"
+    repoURL: https://github.com/YOUR_REPO.git
+    targetRevision: main
+    path: airflow
     helm:
       releaseName: airflow
+      valueFiles:
+        - values.yaml
       parameters:
         - name: airflow.executor
           value: CeleryExecutor
-        - name: dags.persistence.enabled
-          value: "true"
-        - name: dags.persistence.size
-          value: 2Gi
-        - name: logs.persistence.enabled
-          value: "true"
-        - name: logs.persistence.size
-          value: 1Gi
-        - name: scheduler.logCleanup.enabled
-          value: "false"
-        - name: workers.logCleanup.enabled
-          value: "false"
-        - name: workers.replicas
-          value: "1"
-        - name: ingress.web.enabled
-          value: false 
-        - name: ingress.apiServer.enabled
-          value: false 
-        - name: ingress.flower.enabled
-          value: false
 
   destination:
     server: https://kubernetes.default.svc
