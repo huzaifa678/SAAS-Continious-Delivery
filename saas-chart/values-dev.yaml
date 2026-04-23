@@ -129,11 +129,11 @@ domainName:
 apiService: saas-api-service
 
 image:
-  apiGateway: "huzaifagill234/api-gateway:dev"
-  authService: "huzaifagill234/auth-service:dev"
-  subscriptionService: "huzaifagill234/subscription-service:dev"
-  billingService: "huzaifagill234/billing-service:dev"
-  usageService: "huzaifagill234/usage-service:dev"
+  apiGateway: ""
+  authService: ""
+  subscriptionService: ""
+  billingService: ""
+  usageService: ""
 
 apiGateway:
   replicas: 2
