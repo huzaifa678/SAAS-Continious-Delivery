@@ -8,3 +8,5 @@ resources:
   - external-secret/external-secret.yaml
   - airflow/airflow.yaml
   - keycloak/keycloak-gateway.yaml
+  - karpenter/karpenter.yaml
+  - karpenter/nodepool.yaml
