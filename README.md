@@ -5,7 +5,7 @@
 ![Helm](https://img.shields.io/badge/helm-3.14+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-GitOps-based continuous delivery repository for the SaaS platform. Contains a **Helm chart** (`saas-chart`) that packages all platform services and infrastructure, and **ArgoCD Application manifests** (Kustomize overlays) for deploying to multiple environments.
+GitOps-based continuous delivery repository for the SaaS platform. Uses **individual Helm charts** for each microservice (in `charts/`), an **orchestration chart** (`saas-chart/`) for API Gateway and infrastructure, and **environment-specific Kustomize overlays** (in `manifests/`) for ArgoCD-based deployments across dev, staging, and production.
 
 ## What's Deployed
 
@@ -26,46 +26,146 @@ GitOps-based continuous delivery repository for the SaaS platform. Contains a **
 
 ```
 saas-continious-delivery/
-├── saas-chart/                          # Helm chart for all platform services
+├── charts/                              # Individual microservice Helm charts
+│   ├── auth-service/                    # Authentication service chart
+│   │   ├── Chart.yaml
+│   │   ├── values.yaml
+│   │   ├── values-dev.yaml
+│   │   ├── values-prod.yaml
+│   │   ├── values-staging.yaml
+│   │   └── templates/
+│   │       └── deployment.yaml
+│   ├── billing-service/                 # Billing & payments service chart
+│   │   ├── Chart.yaml
+│   │   ├── values.yaml
+│   │   ├── values-dev.yaml
+│   │   ├── values-prod.yaml
+│   │   ├── values-staging.yaml
+│   │   └── templates/
+│   │       └── deployment.yaml
+│   ├── subscription-service/            # Subscription management service chart
+│   │   ├── Chart.yaml
+│   │   ├── values.yaml
+│   │   ├── values-dev.yaml
+│   │   ├── values-prod.yaml
+│   │   ├── values-staging.yaml
+│   │   └── templates/
+│   │       └── deployment.yaml
+│   └── usage-service/                   # Usage analytics service chart
+│       ├── Chart.yaml
+│       ├── values.yaml
+│       ├── values-dev.yaml
+│       ├── values-prod.yaml
+│       ├── values-staging.yaml
+│       └── templates/
+│           └── deployment.yaml
+├── saas-chart/                          # Master Helm chart for infrastructure & API Gateway
 │   ├── Chart.yaml                       # Chart metadata + dependencies
 │   ├── Chart.lock                       # Locked dependency versions
-│   ├── charts/
-│   │   └── opentelemetry-collector-0.100.0.tgz  # Bundled OTel Collector chart
+│   ├── charts/                          # Bundled chart dependencies
+│   │   └── opentelemetry-collector-0.100.0.tgz
 │   ├── templates/
 │   │   ├── api-gateway.yaml             # API Gateway Deployment + Service
-│   │   ├── subscription-service.yaml    # Subscription Service Deployment + Service
-│   │   ├── billing-service.yaml         # Billing Service Deployment + Service
-│   │   ├── usage-service.yaml           # Usage Service Deployment + Service
-│   │   ├── auth-service.yaml            # Auth Service Deployment + Service
 │   │   ├── gateway.yaml                 # Istio Gateway resource
-│   │   ├── gateway-http.yaml            # HTTP Gateway route
-│   │   ├── peer-authentication.yaml     # Istio mTLS PeerAuthentication
-│   │   ├── service.yaml                 # Shared service definitions
-│   │   ├── deployment.yaml              # Generic deployment template
+│   │   ├── gateway-http.yaml            # HTTP Gateway route configuration
+│   │   ├── httproute.yaml               # HTTP routing rules
+│   │   ├── peer-authentication.yaml     # Istio mTLS enforcement
+│   │   ├── service.yaml                 # Service definitions
+│   │   ├── serviceaccount.yaml          # RBAC service accounts
+│   │   ├── hpa.yaml                     # Horizontal Pod Autoscaler
+│   │   ├── ingress.yaml                 # Ingress configuration
 │   │   ├── _helpers.tpl                 # Helm template helpers
+│   │   ├── NOTES.txt                    # Helm chart notes
 │   │   └── tests/
-│   │       └── api-gateway-test.yaml    # Helm test for API Gateway
+│   │       ├── test-connection.yaml
+│   │       └── api-gateway-test.yaml
 │   ├── gateway-api-crds.yaml            # Kubernetes Gateway API CRDs
 │   ├── values.yaml                      # Default values
 │   ├── values-dev.yaml                  # Dev environment overrides
 │   ├── values-test.yaml                 # Test environment overrides
 │   ├── values-staging.yaml              # Staging environment overrides
 │   └── values-prod.yaml                 # Production environment overrides
-└── manifests/
-    └── base/
-        └── overlays/
-            ├── dev/                     # Dev ArgoCD Applications + infra
-            │   ├── application/
-            │   │   └── applications.yaml    # ArgoCD Application resources
-            │   ├── airflow/                 # Airflow Helm release + deployment
-            │   ├── keycloak/                # Keycloak deployment + service
-            │   ├── observability/
-            │   │   └── grafana-stack/       # Prometheus + Loki ArgoCD apps
-            │   ├── root.yaml                # ArgoCD App-of-Apps root
-            │   └── kustomization.yaml
-            ├── staging/                 # Staging overlays
-            └── prod/                    # Production overlays
+├── manifests/                           # Kustomize overlays for ArgoCD deployments
+│   └── base/
+│       └── overlays/
+│           ├── dev/                     # Development environment
+│           │   ├── root.yaml            # ArgoCD App-of-Apps root
+│           │   ├── kustomization.yaml
+│           │   ├── application/
+│           │   │   └── applications.yaml    # Microservice application resources
+│           │   ├── airflow/                 # Airflow orchestration (dev)
+│           │   ├── keycloak/                # Keycloak identity provider (dev)
+│           │   └── observability/
+│           │       └── grafana-stack/       # Prometheus, Loki, Grafana (dev)
+│           ├── staging/                 # Staging environment
+│           │   ├── root.yaml            # ArgoCD App-of-Apps root
+│           │   ├── kustomization.yaml
+│           │   ├── application/
+│           │   │   └── applications.yaml
+│           │   ├── observability/
+│           │   │   └── elk-stack/           # Elasticsearch, Kibana (staging)
+│           │   └── keycloak/
+│           └── prod/                    # Production environment
+│               ├── root.yaml            # ArgoCD App-of-Apps root
+│               ├── kustomization.yaml
+│               ├── application/
+│               │   └── applications.yaml
+│               ├── airflow/                 # Airflow (prod)
+│               ├── keycloak/                # Keycloak (prod)
+│               ├── cert-manager/            # TLS certificate automation
+│               ├── external-dns/            # Route53/DNS integration
+│               ├── external-secret/         # Secrets management
+│               └── karpenter/               # Auto-scaling node provisioning
+└── CHART-PUSH.md                        # Guide for pushing charts to ECR
 ```
+
+**Key Directories:**
+
+- **`charts/`**: Individual Helm charts for each microservice, published to ECR and consumed by ArgoCD
+- **`saas-chart/`**: Orchestration chart for API Gateway, Istio configuration, and shared infrastructure components
+- **`manifests/base/overlays/`**: Environment-specific Kustomize configurations for ArgoCD GitOps deployments
+  - Each environment overlay defines which services and infrastructure components are deployed
+  - Uses ArgoCD Application resources to manage releases
+
+## Architecture Overview
+
+The system follows a microservices architecture with an API Gateway pattern and service mesh integration:
+
+```mermaid
+graph TD
+    EXT["External Traffic"]
+    EXT -->|HTTP/HTTPS| ISTIO["Istio Gateway<br/>GatewayClass: nginx"]
+    
+    ISTIO -->|Port 80/443| APIGW["API Gateway<br/>saas-api-service:9000"]
+    
+    APIGW -->|/api/auth/| AUTH["Auth Service<br/>Port 8080"]
+    APIGW -->|/api/subscription/| SUB["Subscription Service<br/>NestJS | Port 8081"]
+    APIGW -->|/api/billing/| BILL["Billing Service<br/>Spring Boot | Port 8082"]
+    APIGW -->|/api/usage/| USAGE["Usage Service<br/>Python | Port 8083"]
+    
+    SUB -->|gRPC Port 50051| BILL
+    BILL -->|gRPC Port 50052| SUB
+    
+    ISTIO -.->|mTLS + Sidecar Injection| AUTH
+    ISTIO -.->|mTLS + Sidecar Injection| SUB
+    ISTIO -.->|mTLS + Sidecar Injection| BILL
+    ISTIO -.->|mTLS + Sidecar Injection| USAGE
+    ISTIO -.->|mTLS + Sidecar Injection| APIGW
+    
+    style ISTIO fill:#4a90e2,stroke:#2e5c8a,color:#fff
+    style APIGW fill:#f5a623,stroke:#c77e1a,color:#fff
+    style AUTH fill:#7ed321,stroke:#5fa519,color:#fff
+    style SUB fill:#bd10e0,stroke:#8f0a9e,color:#fff
+    style BILL fill:#bd10e0,stroke:#8f0a9e,color:#fff
+    style USAGE fill:#bd10e0,stroke:#8f0a9e,color:#fff
+    style EXT fill:#50e3c2,stroke:#35a39e,color:#fff
+```
+
+**Key Components:**
+- **Istio Gateway**: Handles ingress traffic with TLS termination and enforces mTLS across the service mesh
+- **API Gateway**: Routes HTTP requests to appropriate backend services
+- **Service Mesh**: All services run with Istio sidecars for observability, security, and traffic management
+- **Inter-service Communication**: Services communicate via gRPC for performance-critical operations
 
 ## Environments
 
@@ -86,35 +186,54 @@ saas-continious-delivery/
 
 ## Helm Chart Usage
 
-### Install / Upgrade
+### Install / Upgrade with ArgoCD (Recommended)
+
+The recommended way to deploy is via **ArgoCD GitOps**. See the [ArgoCD GitOps Setup](#argocd-gitops-setup) section below.
+
+### Manual Installation (Dev/Testing)
+
+For development or testing environments, you can install charts manually:
 
 ```bash
-# Add OTel Helm repo (for dependency)
+# 1. Add OTel Helm repo (dependency for saas-chart)
 helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
 helm repo update
 
-# Update chart dependencies
+# 2. Update chart dependencies
 helm dependency update saas-chart/
 
-# Install to dev namespace
+# 3. Install infrastructure chart (API Gateway, Istio config, etc.)
 helm upgrade --install saas saas-chart/ \
   -f saas-chart/values-dev.yaml \
   --namespace saas-dev \
-  --create-namespace \
-  --set image.apiGateway=ghcr.io/your-org/api-gateway:latest \
-  --set image.subscriptionService=ghcr.io/your-org/subscription-service:latest \
-  --set image.billingService=ghcr.io/your-org/billing-service:latest \
-  --set image.usageService=ghcr.io/your-org/usage-service:latest \
-  --set image.authService=ghcr.io/your-org/auth-service:latest
+  --create-namespace
 
-# Install Gateway API CRDs (first time only)
+# 4. Install individual microservice charts
+# (Assumes charts are published to a Helm repo or available locally)
+helm upgrade --install auth-service charts/auth-service/ \
+  -f charts/auth-service/values-dev.yaml \
+  --namespace saas-dev
+
+helm upgrade --install billing-service charts/billing-service/ \
+  -f charts/billing-service/values-dev.yaml \
+  --namespace saas-dev
+
+helm upgrade --install subscription-service charts/subscription-service/ \
+  -f charts/subscription-service/values-dev.yaml \
+  --namespace saas-dev
+
+helm upgrade --install usage-service charts/usage-service/ \
+  -f charts/usage-service/values-dev.yaml \
+  --namespace saas-dev
+
+# 5. Install Gateway API CRDs (first time only)
 kubectl apply -f saas-chart/gateway-api-crds.yaml
 ```
 
 ### Dry Run / Template
 
 ```bash
-# Preview rendered manifests
+# Preview rendered manifests for saas-chart
 helm template saas saas-chart/ -f saas-chart/values-dev.yaml
 
 # Dry run
@@ -131,7 +250,18 @@ helm test saas --namespace saas-dev
 
 ## ArgoCD GitOps Setup
 
-The `manifests/` directory uses an **App-of-Apps** pattern. A root ArgoCD Application points to `manifests/base/overlays/<env>/root.yaml`, which bootstraps all child applications.
+The `manifests/` directory uses an **App-of-Apps** pattern. A root ArgoCD Application in each environment (`manifests/base/overlays/<env>/root.yaml`) orchestrates all child applications, which in turn deploy microservices using the individual Helm charts from `charts/`.
+
+### Deployment Flow
+
+1. **Root Application** (`root.yaml`) — Points to all child applications
+2. **Child Applications** — Each references a Helm chart:
+   - `auth-service` ArgoCD Application → `charts/auth-service/` Helm chart
+   - `billing-service` ArgoCD Application → `charts/billing-service/` Helm chart
+   - `subscription-service` ArgoCD Application → `charts/subscription-service/` Helm chart
+   - `usage-service` ArgoCD Application → `charts/usage-service/` Helm chart
+   - Infrastructure apps (Keycloak, Airflow, Observability, etc.)
+3. **Infrastructure Chart** (`saas-chart/`) — Deployed for API Gateway, Istio, and networking
 
 ### Bootstrap Dev Environment
 
@@ -140,11 +270,33 @@ The `manifests/` directory uses an **App-of-Apps** pattern. A root ArgoCD Applic
 kubectl apply -f manifests/base/overlays/dev/root.yaml -n argocd
 ```
 
-ArgoCD will then automatically sync:
-- The `saas-chart` Helm release
-- Keycloak
-- Airflow
+ArgoCD will then automatically sync all child applications:
+- The `auth-service`, `billing-service`, `subscription-service`, `usage-service` microservices
+- The `saas-chart` infrastructure (API Gateway, Istio Gateway, mTLS config)
+- Keycloak (identity provider)
+- Airflow (data pipeline orchestration)
 - Grafana stack (Prometheus + Loki)
+
+### Bootstrap Staging Environment
+
+```bash
+kubectl apply -f manifests/base/overlays/staging/root.yaml -n argocd
+```
+
+Syncs microservices + ELK stack (Elasticsearch, Kibana) for observability.
+
+### Bootstrap Production Environment
+
+```bash
+kubectl apply -f manifests/base/overlays/prod/root.yaml -n argocd
+```
+
+Syncs microservices + infrastructure with:
+- External DNS (Route53 integration)
+- Cert-Manager (automated TLS certificates)
+- External Secrets (secrets management)
+- Karpenter (auto-scaling node provisioning)
+- Higher replicas and resource limits
 
 ### Sync Manually
 
@@ -156,34 +308,39 @@ argocd app sync keycloak-dev
 
 ## Key Configuration Values
 
-### Service Images
+### API Gateway (saas-chart)
 
-```yaml
-image:
-  apiGateway: ""           # Docker image for api-gateway
-  authService: ""          # Docker image for auth-service
-  subscriptionService: ""  # Docker image for subscription-service
-  billingService: ""       # Docker image for billing-service
-  usageService: ""         # Docker image for usage-service
-```
-
-### Replicas & Ports
+Configuration for the API Gateway is in `saas-chart/values-<env>.yaml`:
 
 ```yaml
 apiGateway:
   replicas: 2
   port: 9000
+  keycloakJWKSURL: "http://keycloak.keycloak.svc.cluster.local:8080/realms/saas/protocol/openid-connect/certs"
+  livenessProbe:
+    path: /healthz/live
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readinessProbe:
+    path: /healthz/ready
+    initialDelaySeconds: 5
+    periodSeconds: 5
+```
 
-services:
-  subscription:
-    replicas: 2
-    port: 8081
-  billing:
-    replicas: 2
-    port: 8082
-  usage:
-    replicas: 2
-    port: 8083
+### Microservice Replicas & Ports
+
+Each microservice Helm chart (`charts/<service>/values-<env>.yaml`) defines its own configuration:
+
+```yaml
+# charts/auth-service/values-dev.yaml
+replicaCount: 2
+image:
+  repository: ghcr.io/your-org/auth-service
+  tag: "latest"
+service:
+  port: 8080
+
+# Similar structure for billing-service, subscription-service, usage-service
 ```
 
 ### Istio
@@ -227,18 +384,29 @@ api-gateway (ClusterIP: saas-api-service)
 subscription-service:50051 ←── billing-service (gRPC)
 ```
 
-## Updating a Service
+## Updating a Microservice
+
+With **ArgoCD GitOps** (recommended):
 
 1. Build and push a new Docker image with a new tag
-2. Update the image tag in the relevant `values-<env>.yaml`
-3. Commit and push — ArgoCD will detect the change and sync automatically
+2. Update the image tag in the relevant `charts/<service>/values-<env>.yaml`
+3. Commit and push to Git — ArgoCD will detect the change and automatically sync the Helm release
 
-Or trigger a manual image update:
+Example:
+
+```yaml
+# charts/billing-service/values-prod.yaml
+image:
+  repository: ghcr.io/your-org/billing-service
+  tag: "v1.2.3"  # Update this
+```
+
+Manual update (dev/testing):
 
 ```bash
-helm upgrade saas saas-chart/ \
-  -f saas-chart/values-dev.yaml \
-  --set image.billingService=ghcr.io/your-org/billing-service:v1.2.3 \
+helm upgrade billing-service charts/billing-service/ \
+  -f charts/billing-service/values-dev.yaml \
+  --set image.tag=v1.2.3 \
   --namespace saas-dev
 ```
 

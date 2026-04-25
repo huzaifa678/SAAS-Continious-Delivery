@@ -1,0 +1,19 @@
+replicas: 3
+
+image:
+  repository: ""  
+  tag: "prod"
+
+istio:
+  enabled: true
+  revision: ""
+
+livenessProbe:
+  path: /healthz/live
+  initialDelaySeconds: 20
+  periodSeconds: 10
+
+readinessProbe:
+  path: /healthz/ready
+  initialDelaySeconds: 15
+  periodSeconds: 5

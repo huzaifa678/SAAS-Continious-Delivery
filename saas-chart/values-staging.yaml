@@ -1,5 +1,44 @@
 global:
   environment: staging
 
+istio:
+  enabled: true
+  revision: ""
+
+image:
+  apiGateway: ""  
+
+apiGateway:
+  replicas: 2
+
 opentelemetry-collector:
-  enabled: false
+  enabled: true
+  config:
+    exporters:
+      otlp/elastic:
+        endpoint: http://monitoring.svc.cluster.local:8200
+        tls:
+          insecure: true
+      elasticsearch:
+        endpoints: ["http://elasticsearch:9200"]
+        logs_index: "otel-logs"
+        tls:
+          insecure: true
+      otlphttp/logstash:
+        endpoint: http://logstash:5000
+      prometheus:
+        endpoint: "0.0.0.0:8889"
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [resource, batch]
+          exporters: [otlp/elastic]
+        metrics:
+          receivers: [otlp]
+          processors: [resource, batch]
+          exporters: [prometheus]
+        logs:
+          receivers: [otlp]
+          processors: [resource, batch]
+          exporters: [elasticsearch, otlphttp/logstash]

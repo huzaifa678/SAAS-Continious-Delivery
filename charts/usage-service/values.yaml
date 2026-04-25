@@ -1,0 +1,20 @@
+replicas: 2
+port: 8083
+
+image:
+  repository: ""
+  tag: "latest"
+
+istio:
+  enabled: false
+  revision: ""
+
+livenessProbe:
+  path: /healthz/live
+  initialDelaySeconds: 60
+  periodSeconds: 10
+
+readinessProbe:
+  path: /healthz/ready
+  initialDelaySeconds: 30
+  periodSeconds: 5

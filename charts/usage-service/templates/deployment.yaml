@@ -5,7 +5,7 @@ metadata:
   labels:
     app: usage-service
 spec:
-  replicas: {{ .Values.services.usage.replicas }}
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       app: usage-service
@@ -23,32 +23,32 @@ spec:
     spec:
       containers:
       - name: usage-service
-        image: {{ .Values.image.usageService }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: Always
         ports:
-        - containerPort: {{ .Values.services.usage.port }}
+        - containerPort: {{ .Values.port }}
           name: http
         livenessProbe:
           httpGet:
-            path: {{ .Values.services.usage.livenessProbe.path }}
-            port: {{ .Values.services.usage.port }}
-          initialDelaySeconds: {{ .Values.services.usage.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.services.usage.livenessProbe.periodSeconds }}
+            path: {{ .Values.livenessProbe.path }}
+            port: {{ .Values.port }}
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
         readinessProbe:
           httpGet:
-            path: {{ .Values.services.usage.readinessProbe.path }}
-            port: {{ .Values.services.usage.port }}
-          initialDelaySeconds: {{ .Values.services.usage.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.services.usage.readinessProbe.periodSeconds }}
+            path: {{ .Values.readinessProbe.path }}
+            port: {{ .Values.port }}
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.services.usage.name }}
+  name: usage-service
 spec:
   selector:
     app: usage-service

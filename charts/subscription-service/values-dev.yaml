@@ -1,0 +1,8 @@
+replicas: 1
+
+image:
+  repository: ""  
+  tag: "dev"
+
+istio:
+  enabled: false

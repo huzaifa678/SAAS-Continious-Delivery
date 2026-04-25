@@ -1,0 +1,9 @@
+replicas: 2
+
+image:
+  repository: "" 
+  tag: "staging"
+
+istio:
+  enabled: true
+  revision: ""

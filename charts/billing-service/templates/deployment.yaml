@@ -5,7 +5,7 @@ metadata:
   labels:
     app: billing-service
 spec:
-  replicas: {{ .Values.services.billing.replicas }}
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       app: billing-service
@@ -23,32 +23,32 @@ spec:
     spec:
       containers:
       - name: billing-service
-        image: {{ .Values.image.billingService }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: Always
         ports:
-        - containerPort: {{ .Values.services.billing.port }}
+        - containerPort: {{ .Values.port }}
           name: http
         livenessProbe:
           httpGet:
-            path: {{ .Values.services.billing.livenessProbe.path }}
-            port: {{ .Values.services.billing.port }}
-          initialDelaySeconds: {{ .Values.services.billing.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.services.billing.livenessProbe.periodSeconds }}
+            path: {{ .Values.livenessProbe.path }}
+            port: {{ .Values.port }}
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
         readinessProbe:
           httpGet:
-            path: {{ .Values.services.billing.readinessProbe.path }}
-            port: {{ .Values.services.billing.port }}
-          initialDelaySeconds: {{ .Values.services.billing.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.services.billing.readinessProbe.periodSeconds }}
+            path: {{ .Values.readinessProbe.path }}
+            port: {{ .Values.port }}
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.services.billing.name }}
+  name: billing-service
 spec:
   selector:
     app: billing-service

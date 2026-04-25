@@ -1,0 +1,8 @@
+replicas: 1
+
+image:
+  repository: ""  # e.g. 123456789.dkr.ecr.us-east-1.amazonaws.com/auth-service
+  tag: "dev"
+
+istio:
+  enabled: false

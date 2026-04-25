@@ -1,14 +1,14 @@
+# API Gateway (saas-chart) — deployed from Git path
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: saas-microservices
+  name: api-gateway-staging
   namespace: argocd
   annotations:
-    argocd.argoproj.io/refresh: hard
     argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/refresh: hard
 spec:
   project: default
-
   source:
     repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
     targetRevision: main
@@ -17,22 +17,19 @@ spec:
       valueFiles:
         - values.yaml
         - values-staging.yaml
-
   destination:
     server: https://kubernetes.default.svc
     namespace: saas-apps
-
   syncPolicy:
     automated:
-      prune: true       
-      selfHeal: true     
+      prune: true
+      selfHeal: true
       allowEmpty: false
     syncOptions:
       - CreateNamespace=true
-      - PruneLast=true               
-      - ApplyOutOfSyncOnly=true       
-      - FailOnSharedResource=true     
-
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - FailOnSharedResource=true
   ignoreDifferences:
     - group: apps
       kind: Deployment
@@ -42,3 +39,163 @@ spec:
       kind: Service
       jsonPointers:
         - /spec/clusterIP
+---
+# Auth Service
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: auth-service-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    - repoURL: oci://123456789.dkr.ecr.us-east-1.amazonaws.com/helm
+      chart: auth-service
+      targetRevision: 0.1.0
+      helm:
+        releaseName: auth-service
+        valueFiles:
+          - $values/charts/auth-service/values.yaml
+          - $values/charts/auth-service/values-staging.yaml
+    - repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: saas-apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+---
+# Billing Service
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: billing-service-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    - repoURL: oci://123456789.dkr.ecr.us-east-1.amazonaws.com/helm
+      chart: billing-service
+      targetRevision: 0.1.0
+      helm:
+        releaseName: billing-service
+        valueFiles:
+          - $values/charts/billing-service/values.yaml
+          - $values/charts/billing-service/values-staging.yaml
+    - repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: saas-apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+---
+# Subscription Service
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: subscription-service-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    - repoURL: oci://123456789.dkr.ecr.us-east-1.amazonaws.com/helm
+      chart: subscription-service
+      targetRevision: 0.1.0
+      helm:
+        releaseName: subscription-service
+        valueFiles:
+          - $values/charts/subscription-service/values.yaml
+          - $values/charts/subscription-service/values-staging.yaml
+    - repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: saas-apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+---
+# Usage Service
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: usage-service-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    - repoURL: oci://123456789.dkr.ecr.us-east-1.amazonaws.com/helm
+      chart: usage-service
+      targetRevision: 0.1.0
+      helm:
+        releaseName: usage-service
+        valueFiles:
+          - $values/charts/usage-service/values.yaml
+          - $values/charts/usage-service/values-staging.yaml
+    - repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: saas-apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

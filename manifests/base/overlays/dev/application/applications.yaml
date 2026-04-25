@@ -1,13 +1,21 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# DEV — ArgoCD Applications
+# Each microservice is deployed from its own ECR-hosted Helm chart.
+# Chart versions are pinned here; change of helm manifests and updating to new version is possible.
+# valueFiles are loaded from Git so env-specific overrides stay in source control.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# API Gateway (saas-chart) — deployed from Git path (contains otel + gateway CRDs)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: saas-microservices
+  name: api-gateway-dev
   namespace: argocd
   annotations:
+    argocd.argoproj.io/sync-wave: "1"
     argocd.argoproj.io/refresh: hard
 spec:
   project: default
-
   source:
     repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
     targetRevision: main
@@ -16,22 +24,19 @@ spec:
       valueFiles:
         - values.yaml
         - values-dev.yaml
-
   destination:
     server: https://kubernetes.default.svc
     namespace: saas-apps
-
   syncPolicy:
     automated:
-      prune: true       
-      selfHeal: true     
+      prune: true
+      selfHeal: true
       allowEmpty: false
     syncOptions:
       - CreateNamespace=true
-      - PruneLast=true               
-      - ApplyOutOfSyncOnly=true       
-      - FailOnSharedResource=true     
-
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - FailOnSharedResource=true
   ignoreDifferences:
     - group: apps
       kind: Deployment
@@ -42,6 +47,170 @@ spec:
       jsonPointers:
         - /spec/clusterIP
 ---
+# Auth Service — pulled from ECR OCI registry
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: auth-service-dev
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    # Chart from ECR (OCI)
+    - repoURL: oci://123456789.dkr.ecr.us-east-1.amazonaws.com/helm
+      chart: auth-service
+      targetRevision: 0.1.0   
+      helm:
+        releaseName: auth-service
+        valueFiles:
+          # Values loaded from Git ref (requires ArgoCD multi-source)
+          - $values/charts/auth-service/values.yaml
+          - $values/charts/auth-service/values-dev.yaml
+    # Git ref for valueFiles
+    - repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: saas-apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+---
+# Billing Service — pulled from ECR OCI registry
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: billing-service-dev
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    - repoURL: oci://123456789.dkr.ecr.us-east-1.amazonaws.com/helm
+      chart: billing-service
+      targetRevision: 0.1.0
+      helm:
+        releaseName: billing-service
+        valueFiles:
+          - $values/charts/billing-service/values.yaml
+          - $values/charts/billing-service/values-dev.yaml
+    - repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: saas-apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+---
+# Subscription Service — pulled from ECR OCI registry
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: subscription-service-dev
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    - repoURL: oci://123456789.dkr.ecr.us-east-1.amazonaws.com/helm
+      chart: subscription-service
+      targetRevision: 0.1.0
+      helm:
+        releaseName: subscription-service
+        valueFiles:
+          - $values/charts/subscription-service/values.yaml
+          - $values/charts/subscription-service/values-dev.yaml
+    - repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: saas-apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+---
+# Usage Service — pulled from ECR OCI registry
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: usage-service-dev
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  sources:
+    - repoURL: oci://123456789.dkr.ecr.us-east-1.amazonaws.com/helm
+      chart: usage-service
+      targetRevision: 0.1.0
+      helm:
+        releaseName: usage-service
+        valueFiles:
+          - $values/charts/usage-service/values.yaml
+          - $values/charts/usage-service/values-dev.yaml
+    - repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: saas-apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+---
+# Istio
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -51,7 +220,6 @@ metadata:
     argocd.argoproj.io/sync-wave: "-1"
 spec:
   project: default
-
   sources:
     - repoURL: https://istio-release.storage.googleapis.com/charts
       chart: base
@@ -67,11 +235,9 @@ spec:
           pilot:
             env:
               PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION: "true"
-
   destination:
     server: https://kubernetes.default.svc
     namespace: istio-system
-
   syncPolicy:
     automated:
       prune: true
@@ -82,6 +248,7 @@ spec:
       - PruneLast=true
       - ApplyOutOfSyncOnly=true
 ---
+# Keycloak
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -91,16 +258,13 @@ metadata:
     argocd.argoproj.io/sync-wave: "0"
 spec:
   project: default
-
   source:
     repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
     targetRevision: main
     path: clusters/prod/keycloak
-
   destination:
     server: https://kubernetes.default.svc
     namespace: keycloak
-
   syncPolicy:
     automated:
       prune: true

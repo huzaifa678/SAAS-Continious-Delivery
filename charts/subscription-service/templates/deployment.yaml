@@ -5,7 +5,7 @@ metadata:
   labels:
     app: subscription-service
 spec:
-  replicas: {{ .Values.services.subscription.replicas }}
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       app: subscription-service
@@ -23,34 +23,34 @@ spec:
     spec:
       containers:
       - name: subscription-service
-        image: {{ .Values.image.subscriptionService }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: Always
         ports:
-        - containerPort: {{ .Values.services.subscription.port }}
+        - containerPort: {{ .Values.port }}
           name: http
         - containerPort: 50051
           name: grpc
         livenessProbe:
           httpGet:
-            path: {{ .Values.services.subscription.livenessProbe.path }}
-            port: {{ .Values.services.subscription.port }}
-          initialDelaySeconds: {{ .Values.services.subscription.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.services.subscription.livenessProbe.periodSeconds }}
+            path: {{ .Values.livenessProbe.path }}
+            port: {{ .Values.port }}
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
         readinessProbe:
           httpGet:
-            path: {{ .Values.services.subscription.readinessProbe.path }}
-            port: {{ .Values.services.subscription.port }}
-          initialDelaySeconds: {{ .Values.services.subscription.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.services.subscription.readinessProbe.periodSeconds }}
+            path: {{ .Values.readinessProbe.path }}
+            port: {{ .Values.port }}
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.services.subscription.name }}
+  name: subscription-service
 spec:
   selector:
     app: subscription-service

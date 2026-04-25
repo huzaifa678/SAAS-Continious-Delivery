@@ -1,6 +1,94 @@
 global:
-  environment: dev   #default config
+  environment: dev
 
 istio:
   enabled: false
-  revision: ""  # e.g. "1-21" for canary upgrades; empty = default label
+  revision: ""
+
+appName: saas
+gatewayClass: nginx
+
+tlsSecretName:
+  http: saas-app-api-tls
+
+gateway:
+  nlbTarget: ""
+
+domainName:
+  http: ""
+
+apiService: saas-api-service
+
+services:
+  auth:
+    name: auth-service
+  subscription:
+    name: subscription-service
+  billing:
+    name: billing-service
+
+image:
+  apiGateway: ""
+
+apiGateway:
+  replicas: 2
+  port: 9000
+  keycloakJWKSURL: "http://keycloak.keycloak.svc.cluster.local:8080/realms/saas/protocol/openid-connect/certs"
+  livenessProbe:
+    path: /healthz/live
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readinessProbe:
+    path: /healthz/ready
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+opentelemetry-collector:
+  enabled: true
+  mode: daemonset
+
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    processors:
+      batch: {}
+      resource:
+        attributes:
+          - key: service.name
+            from_attribute: service.name
+            action: insert
+
+    exporters:
+      otlp/tempo:
+        endpoint: tempo:4317
+        tls:
+          insecure: true
+      otlphttp/loki:
+        endpoint: http://loki:3100/otlp
+        tls:
+          insecure: true
+      debug:
+        verbosity: detailed
+      prometheus:
+        endpoint: localhost:8889
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [resource, batch]
+          exporters: [otlp/tempo]
+        metrics:
+          receivers: [otlp]
+          processors: [resource, batch]
+          exporters: [prometheus]
+        logs:
+          receivers: [otlp]
+          processors: [resource, batch]
+          exporters: [debug, otlphttp/loki]
