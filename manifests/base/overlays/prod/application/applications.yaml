@@ -51,7 +51,7 @@ metadata:
 spec:
   project: default
   sources:
-    - repoURL: oci://123456789.dkr.ecr.us-east-1.amazonaws.com/helm
+    - repoURL: oci://123456789.dkr.ecr.us-east-1.amazonaws.com/helm # example repo url will change to real one
       chart: auth-service
       targetRevision: 0.1.0
       helm:
