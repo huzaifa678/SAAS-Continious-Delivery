@@ -129,43 +129,45 @@ saas-continious-delivery/
 
 ## Architecture Overview
 
-The system follows a microservices architecture with an API Gateway pattern and service mesh integration:
+The system follows a microservices architecture with Kubernetes Gateway API for ingress and Istio service mesh for inter-service communication:
 
 ```mermaid
 graph TD
-    EXT["External Traffic"]
-    EXT -->|HTTP/HTTPS| ISTIO["Istio Gateway<br/>GatewayClass: nginx"]
+    EXT["🌐 External Traffic"]
+    EXT -->|HTTP/HTTPS| GW["🚪 Kubernetes Gateway<br/>GatewayClass: nginx<br/>Port 80/443"]
     
-    ISTIO -->|Port 80/443| APIGW["API Gateway<br/>saas-api-service:9000"]
+    GW -->|Route: /api/*| APIGW["🔀 API Gateway Pod<br/>saas-api-service:9000<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
     
-    APIGW -->|/api/auth/| AUTH["Auth Service<br/>Port 8080"]
-    APIGW -->|/api/subscription/| SUB["Subscription Service<br/>NestJS | Port 8081"]
-    APIGW -->|/api/billing/| BILL["Billing Service<br/>Spring Boot | Port 8082"]
-    APIGW -->|/api/usage/| USAGE["Usage Service<br/>Python | Port 8083"]
+    APIGW -->|/api/auth/| AUTH["🔐 Auth Service Pod<br/>Port 8080<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
     
-    SUB -->|gRPC Port 50051| BILL
-    BILL -->|gRPC Port 50052| SUB
+    APIGW -->|/api/subscription/| SUB["📋 Subscription Service Pod<br/>NestJS | Port 8081<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
     
-    ISTIO -.->|mTLS + Sidecar Injection| AUTH
-    ISTIO -.->|mTLS + Sidecar Injection| SUB
-    ISTIO -.->|mTLS + Sidecar Injection| BILL
-    ISTIO -.->|mTLS + Sidecar Injection| USAGE
-    ISTIO -.->|mTLS + Sidecar Injection| APIGW
+    APIGW -->|/api/billing/| BILL["💳 Billing Service Pod<br/>Spring Boot | Port 8082<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
     
-    style ISTIO fill:#4a90e2,stroke:#2e5c8a,color:#fff
-    style APIGW fill:#f5a623,stroke:#c77e1a,color:#fff
-    style AUTH fill:#7ed321,stroke:#5fa519,color:#fff
-    style SUB fill:#bd10e0,stroke:#8f0a9e,color:#fff
-    style BILL fill:#bd10e0,stroke:#8f0a9e,color:#fff
-    style USAGE fill:#bd10e0,stroke:#8f0a9e,color:#fff
-    style EXT fill:#50e3c2,stroke:#35a39e,color:#fff
+    APIGW -->|/api/usage/| USAGE["📊 Usage Service Pod<br/>Python | Port 8083<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
+    
+    SUB -->|gRPC Port 50051<br/>via Sidecar| BILL
+    BILL -->|gRPC Port 50052<br/>via Sidecar| SUB
+    
+    style GW fill:#2196f3,stroke:#1565c0,color:#fff
+    style APIGW fill:#ff9800,stroke:#e65100,color:#fff
+    style AUTH fill:#4caf50,stroke:#2e7d32,color:#fff
+    style SUB fill:#9c27b0,stroke:#6a1b9a,color:#fff
+    style BILL fill:#9c27b0,stroke:#6a1b9a,color:#fff
+    style USAGE fill:#9c27b0,stroke:#6a1b9a,color:#fff
+    style EXT fill:#00bcd4,stroke:#00838f,color:#fff
 ```
 
-**Key Components:**
-- **Istio Gateway**: Handles ingress traffic with TLS termination and enforces mTLS across the service mesh
-- **API Gateway**: Routes HTTP requests to appropriate backend services
-- **Service Mesh**: All services run with Istio sidecars for observability, security, and traffic management
-- **Inter-service Communication**: Services communicate via gRPC for performance-critical operations
+**Architecture Details:**
+
+- **Kubernetes Gateway** (GatewayClass: nginx): Handles external ingress traffic and TLS termination
+- **API Gateway Service**: Routes HTTP requests to backend microservices
+- **Istio Service Mesh**: 
+  - Automatically injects a sidecar proxy into each service pod (when enabled)
+  - Sidecars intercept all inter-service traffic
+  - Enforces **mTLS** (mutual TLS) for encrypted, authenticated service-to-service communication
+  - Enables traffic management, retries, circuit breaking, and observability
+- **Service-to-Service Communication**: All traffic flows through Istio sidecars for security and observability
 
 ## Environments
 
@@ -343,15 +345,22 @@ service:
 # Similar structure for billing-service, subscription-service, usage-service
 ```
 
-### Istio
+### Istio Service Mesh Configuration
+
+Istio is configured in `saas-chart/templates/peer-authentication.yaml` and `saas-chart/values-<env>.yaml`:
 
 ```yaml
 istio:
   enabled: true
-  revision: ""   # Set to Istio revision label if using canary upgrades
+  revision: ""   # Set to Istio revision label for canary upgrades
 ```
 
-When enabled, all service pods get `sidecar.istio.io/inject: "true"` annotations and a `PeerAuthentication` resource enforces mTLS across the mesh.
+**How it works:**
+- When `istio.enabled: true`, all service deployments get the `sidecar.istio.io/inject: "true"` annotation
+- Istio's mutating admission webhook automatically injects an Envoy sidecar proxy into each pod
+- The sidecar intercepts all inbound and outbound traffic from the main application container
+- A `PeerAuthentication` resource enforces **mTLS** (mutual TLS) for all service-to-service communication
+- Sidecars provide: traffic encryption, authentication, observability (metrics, logs, traces), retries, circuit breaking
 
 ### OpenTelemetry Collector
 
