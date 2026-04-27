@@ -10,6 +10,12 @@ image:
 
 apiGateway:
   replicas: 3
+  blueGreen:
+    activeSlot: blue
+    previewSlot: green
+    previewImage: ""
+    activeWeight: 100
+    previewWeight: 0
 
 opentelemetry-collector:
   enabled: false

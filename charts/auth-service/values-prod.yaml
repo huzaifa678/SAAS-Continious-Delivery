@@ -8,6 +8,14 @@ istio:
   enabled: true
   revision: ""
 
+# In prod the active slot is blue; flip to green when promoting a new release.
+blueGreen:
+  activeSlot: blue
+  previewSlot: green
+  previewTag: "prod"
+  activeWeight: 100
+  previewWeight: 0
+
 livenessProbe:
   path: /healthz/live
   initialDelaySeconds: 15

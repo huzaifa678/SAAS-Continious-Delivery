@@ -1,60 +1,103 @@
+{{- $svc := "billing-service" }}
+{{- $bg := .Values.blueGreen }}
+{{- range list "blue" "green" }}
+{{- $slot := . }}
+{{- $active := eq $slot $bg.activeSlot }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: billing-service
+  name: {{ $svc }}-{{ $slot }}
   labels:
-    app: billing-service
+    app: {{ $svc }}
+    slot: {{ $slot }}
 spec:
-  replicas: {{ .Values.replicas }}
+  replicas: {{ if $active }}{{ $.Values.replicas }}{{ else }}0{{ end }}
   selector:
     matchLabels:
-      app: billing-service
+      app: {{ $svc }}
+      slot: {{ $slot }}
   template:
     metadata:
       labels:
-        app: billing-service
-      {{- if .Values.istio.enabled }}
+        app: {{ $svc }}
+        slot: {{ $slot }}
+      {{- if $.Values.istio.enabled }}
       annotations:
         sidecar.istio.io/inject: "true"
-        {{- if .Values.istio.revision }}
-        istio.io/rev: {{ .Values.istio.revision | quote }}
+        {{- if $.Values.istio.revision }}
+        istio.io/rev: {{ $.Values.istio.revision | quote }}
         {{- end }}
       {{- end }}
     spec:
       containers:
-      - name: billing-service
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+      - name: {{ $svc }}
+        image: {{ if $active }}{{ $.Values.image.repository }}:{{ $.Values.image.tag }}{{ else }}{{ $.Values.image.repository }}:{{ $.Values.blueGreen.previewTag }}{{ end }}
         imagePullPolicy: Always
         ports:
-        - containerPort: {{ .Values.port }}
+        - containerPort: {{ $.Values.port }}
           name: http
         livenessProbe:
           httpGet:
-            path: {{ .Values.livenessProbe.path }}
-            port: {{ .Values.port }}
-          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            path: {{ $.Values.livenessProbe.path }}
+            port: {{ $.Values.port }}
+          initialDelaySeconds: {{ $.Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ $.Values.livenessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
         readinessProbe:
           httpGet:
-            path: {{ .Values.readinessProbe.path }}
-            port: {{ .Values.port }}
-          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            path: {{ $.Values.readinessProbe.path }}
+            port: {{ $.Values.port }}
+          initialDelaySeconds: {{ $.Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ $.Values.readinessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
 ---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: billing-service
+  name: {{ $svc }}
 spec:
   selector:
-    app: billing-service
+    app: {{ $svc }}
   ports:
   - protocol: TCP
     port: 80
     targetPort: http
     name: http
   type: ClusterIP
+{{- if .Values.istio.enabled }}
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ $svc }}
+spec:
+  host: {{ $svc }}
+  subsets:
+  - name: blue
+    labels:
+      slot: blue
+  - name: green
+    labels:
+      slot: green
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ $svc }}
+spec:
+  hosts:
+  - {{ $svc }}
+  http:
+  - route:
+    - destination:
+        host: {{ $svc }}
+        subset: {{ .Values.blueGreen.activeSlot }}
+      weight: {{ .Values.blueGreen.activeWeight }}
+    - destination:
+        host: {{ $svc }}
+        subset: {{ .Values.blueGreen.previewSlot }}
+      weight: {{ .Values.blueGreen.previewWeight }}
+{{- end }}

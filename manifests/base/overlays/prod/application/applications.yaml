@@ -39,6 +39,11 @@ spec:
       kind: Service
       jsonPointers:
         - /spec/clusterIP
+    # Allow manual traffic shifts without ArgoCD reverting them
+    - group: networking.istio.io
+      kind: VirtualService
+      jsonPointers:
+        - /spec/http/0/route
 ---
 # Auth Service
 apiVersion: argoproj.io/v1alpha1
@@ -79,6 +84,10 @@ spec:
       kind: Deployment
       jsonPointers:
         - /spec/replicas
+    - group: networking.istio.io
+      kind: VirtualService
+      jsonPointers:
+        - /spec/http/0/route
 ---
 # Billing Service
 apiVersion: argoproj.io/v1alpha1
@@ -119,6 +128,10 @@ spec:
       kind: Deployment
       jsonPointers:
         - /spec/replicas
+    - group: networking.istio.io
+      kind: VirtualService
+      jsonPointers:
+        - /spec/http/0/route
 ---
 # Subscription Service
 apiVersion: argoproj.io/v1alpha1
@@ -159,6 +172,10 @@ spec:
       kind: Deployment
       jsonPointers:
         - /spec/replicas
+    - group: networking.istio.io
+      kind: VirtualService
+      jsonPointers:
+        - /spec/http/0/route
 ---
 # Usage Service
 apiVersion: argoproj.io/v1alpha1
@@ -199,6 +216,10 @@ spec:
       kind: Deployment
       jsonPointers:
         - /spec/replicas
+    - group: networking.istio.io
+      kind: VirtualService
+      jsonPointers:
+        - /spec/http/0/route
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application

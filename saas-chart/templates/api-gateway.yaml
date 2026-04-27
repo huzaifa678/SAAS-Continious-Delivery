@@ -1,71 +1,114 @@
+{{- $svc := "api-gateway" }}
+{{- $bg := .Values.apiGateway.blueGreen }}
+{{- range list "blue" "green" }}
+{{- $slot := . }}
+{{- $active := eq $slot $bg.activeSlot }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api-gateway
+  name: {{ $svc }}-{{ $slot }}
   labels:
-    app: api-gateway
+    app: {{ $svc }}
+    slot: {{ $slot }}
 spec:
-  replicas: {{ .Values.apiGateway.replicas }}
+  replicas: {{ if $active }}{{ $.Values.apiGateway.replicas }}{{ else }}0{{ end }}
   selector:
     matchLabels:
-      app: api-gateway
+      app: {{ $svc }}
+      slot: {{ $slot }}
   template:
     metadata:
       labels:
-        app: api-gateway
-      {{- if .Values.istio.enabled }}
+        app: {{ $svc }}
+        slot: {{ $slot }}
+      {{- if $.Values.istio.enabled }}
       annotations:
         sidecar.istio.io/inject: "true"
-        {{- if .Values.istio.revision }}
-        istio.io/rev: {{ .Values.istio.revision | quote }}
+        {{- if $.Values.istio.revision }}
+        istio.io/rev: {{ $.Values.istio.revision | quote }}
         {{- end }}
       {{- end }}
     spec:
       containers:
-      - name: api-gateway
-        image: {{ .Values.image.apiGateway }}
+      - name: {{ $svc }}
+        image: {{ if $active }}{{ $.Values.image.apiGateway }}{{ else }}{{ $.Values.apiGateway.blueGreen.previewImage }}{{ end }}
         imagePullPolicy: Always
         ports:
-        - containerPort: {{ .Values.apiGateway.port }}
+        - containerPort: {{ $.Values.apiGateway.port }}
           name: http
         env:
         - name: GATEWAY_SERVICES_AUTH_URL
-          value: "http://{{ .Values.services.auth.name }}.{{ .Release.Namespace }}.svc.cluster.local"
+          value: "http://{{ $.Values.services.auth.name }}.{{ $.Release.Namespace }}.svc.cluster.local"
         - name: GATEWAY_SERVICES_SUBSCRIPTION_URL
-          value: "http://{{ .Values.services.subscription.name }}.{{ .Release.Namespace }}.svc.cluster.local"
+          value: "http://{{ $.Values.services.subscription.name }}.{{ $.Release.Namespace }}.svc.cluster.local"
         - name: GATEWAY_SERVICES_BILLING_URL
-          value: "http://{{ .Values.services.billing.name }}.{{ .Release.Namespace }}.svc.cluster.local"
+          value: "http://{{ $.Values.services.billing.name }}.{{ $.Release.Namespace }}.svc.cluster.local"
         - name: GATEWAY_APP_PORT
-          value: {{ .Values.apiGateway.port | quote }}
+          value: {{ $.Values.apiGateway.port | quote }}
         - name: GATEWAY_KEYCLOAK_JWKSURL
-          value: {{ .Values.apiGateway.keycloakJWKSURL | quote }}
+          value: {{ $.Values.apiGateway.keycloakJWKSURL | quote }}
         livenessProbe:
           httpGet:
-            path: {{ .Values.apiGateway.livenessProbe.path }}
-            port: {{ .Values.apiGateway.port }}
-          initialDelaySeconds: {{ .Values.apiGateway.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.apiGateway.livenessProbe.periodSeconds }}
+            path: {{ $.Values.apiGateway.livenessProbe.path }}
+            port: {{ $.Values.apiGateway.port }}
+          initialDelaySeconds: {{ $.Values.apiGateway.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ $.Values.apiGateway.livenessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
         readinessProbe:
           httpGet:
-            path: {{ .Values.apiGateway.readinessProbe.path }}
-            port: {{ .Values.apiGateway.port }}
-          initialDelaySeconds: {{ .Values.apiGateway.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.apiGateway.readinessProbe.periodSeconds }}
+            path: {{ $.Values.apiGateway.readinessProbe.path }}
+            port: {{ $.Values.apiGateway.port }}
+          initialDelaySeconds: {{ $.Values.apiGateway.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ $.Values.apiGateway.readinessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
 ---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Values.apiService }}
 spec:
   selector:
-    app: api-gateway
+    app: {{ $svc }}
   ports:
   - protocol: TCP
     port: 80
     targetPort: http
     name: http
   type: ClusterIP
+{{- if .Values.istio.enabled }}
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ $svc }}
+spec:
+  host: {{ .Values.apiService }}
+  subsets:
+  - name: blue
+    labels:
+      slot: blue
+  - name: green
+    labels:
+      slot: green
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ $svc }}
+spec:
+  hosts:
+  - {{ .Values.apiService }}
+  http:
+  - route:
+    - destination:
+        host: {{ .Values.apiService }}
+        subset: {{ .Values.apiGateway.blueGreen.activeSlot }}
+      weight: {{ .Values.apiGateway.blueGreen.activeWeight }}
+    - destination:
+        host: {{ .Values.apiService }}
+        subset: {{ .Values.apiGateway.blueGreen.previewSlot }}
+      weight: {{ .Values.apiGateway.blueGreen.previewWeight }}
+{{- end }}

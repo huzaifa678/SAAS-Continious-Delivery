@@ -9,6 +9,18 @@ istio:
   enabled: false
   revision: ""
 
+# Blue-green deployment config.
+# activeSlot: which slot (blue|green) is live and receives 100% traffic.
+# previewSlot: the inactive slot (scaled to 0 replicas by default).
+# previewTag: image tag deployed to the preview slot (staged for next release).
+# activeWeight / previewWeight: Istio traffic split (must sum to 100).
+blueGreen:
+  activeSlot: blue
+  previewSlot: green
+  previewTag: "latest"
+  activeWeight: 100
+  previewWeight: 0
+
 livenessProbe:
   path: /healthz/live
   initialDelaySeconds: 15

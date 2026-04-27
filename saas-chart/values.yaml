@@ -42,6 +42,12 @@ apiGateway:
     path: /healthz/ready
     initialDelaySeconds: 5
     periodSeconds: 5
+  blueGreen:
+    activeSlot: blue
+    previewSlot: green
+    previewImage: ""
+    activeWeight: 100
+    previewWeight: 0
 
 opentelemetry-collector:
   enabled: true

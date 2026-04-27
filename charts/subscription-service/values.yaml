@@ -9,6 +9,13 @@ istio:
   enabled: false
   revision: ""
 
+blueGreen:
+  activeSlot: blue
+  previewSlot: green
+  previewTag: "latest"
+  activeWeight: 100
+  previewWeight: 0
+
 livenessProbe:
   path: /healthz/live
   initialDelaySeconds: 20
