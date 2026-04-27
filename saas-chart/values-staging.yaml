@@ -13,6 +13,11 @@ apiGateway:
 
 opentelemetry-collector:
   enabled: true
+
+  image:
+    repository: otel/opentelemetry-collector
+    tag: latest
+    
   config:
     exporters:
       otlp/elastic:

@@ -52,6 +52,10 @@ apiGateway:
 opentelemetry-collector:
   enabled: true
   mode: daemonset
+  
+  image:
+    repository: otel/opentelemetry-collector
+    tag: latest
 
   config:
     receivers:
