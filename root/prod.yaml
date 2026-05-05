@@ -1,0 +1,55 @@
+# Root app-of-apps for PROD
+# Apply this once to bootstrap: kubectl apply -f root/prod.yaml
+#
+# Terraform (saas-services-infra) separately deploys via kubectl_manifest:
+#   - keycloak-helm     (RDS endpoint injected)
+#   - karpenter         (IRSA ARN + cluster name injected)
+#   - cert-manager      (IRSA ARN injected)
+#   - external-dns      (IRSA ARN injected)
+#   - external-secrets  (IRSA ARN injected)
+---
+# Infra layer — kustomize overlay (airflow + keycloak-gateway + karpenter nodepool)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infra-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+    targetRevision: main
+    path: infra/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
+# Apps layer — microservices + istio Application CRDs
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: apps-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+    targetRevision: main
+    path: apps
+    directory:
+      include: "prod.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

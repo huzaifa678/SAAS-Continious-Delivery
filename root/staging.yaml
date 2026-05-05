@@ -1,0 +1,48 @@
+# Root app-of-apps for STAGING
+# Apply this once to bootstrap: kubectl apply -f root/staging.yaml
+---
+# Infra layer — kustomize overlay (airflow + keycloak + elasticsearch/kibana)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infra-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+    targetRevision: main
+    path: infra/overlays/staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
+# Apps layer — microservices + istio Application CRDs
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: apps-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+    targetRevision: main
+    path: apps
+    directory:
+      include: "staging.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
