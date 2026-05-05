@@ -5,7 +5,7 @@
 ![Helm](https://img.shields.io/badge/helm-3.14+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-GitOps-based continuous delivery repository for the SaaS platform. Uses **individual Helm charts** for each microservice (in `charts/`), an **orchestration chart** (`saas-chart/`) for API Gateway and infrastructure, and **environment-specific Kustomize overlays** (in `manifests/`) for ArgoCD-based deployments across dev, staging, and production.
+GitOps-based continuous delivery repository for the SaaS platform. Uses **individual Helm charts** for each microservice (in `charts/`), an **orchestration chart** (`saas-chart/`) for API Gateway and infrastructure, and **environment-specific Kustomize overlays** (in `infra/overlays/`) for ArgoCD-based deployments across dev, staging, and production.
 
 ## What's Deployed
 
@@ -59,73 +59,72 @@ saas-continious-delivery/
 │       ├── values-staging.yaml
 │       └── templates/
 │           └── deployment.yaml
-├── saas-chart/                          # Master Helm chart for infrastructure & API Gateway
+├── saas-chart/                         # Master Helm chart for infrastructure & API Gateway
 │   ├── Chart.yaml                       # Chart metadata + dependencies
-│   ├── Chart.lock                       # Locked dependency versions
-│   ├── charts/                          # Bundled chart dependencies
-│   │   └── opentelemetry-collector-0.100.0.tgz
-│   ├── templates/
-│   │   ├── api-gateway.yaml             # API Gateway Deployment + Service
-│   │   ├── gateway.yaml                 # Istio Gateway resource
-│   │   ├── gateway-http.yaml            # HTTP Gateway route configuration
-│   │   ├── httproute.yaml               # HTTP routing rules
-│   │   ├── peer-authentication.yaml     # Istio mTLS enforcement
-│   │   ├── service.yaml                 # Service definitions
-│   │   ├── serviceaccount.yaml          # RBAC service accounts
-│   │   ├── hpa.yaml                     # Horizontal Pod Autoscaler
-│   │   ├── ingress.yaml                 # Ingress configuration
-│   │   ├── _helpers.tpl                 # Helm template helpers
-│   │   ├── NOTES.txt                    # Helm chart notes
-│   │   └── tests/
-│   │       ├── test-connection.yaml
-│   │       └── api-gateway-test.yaml
 │   ├── gateway-api-crds.yaml            # Kubernetes Gateway API CRDs
 │   ├── values.yaml                      # Default values
 │   ├── values-dev.yaml                  # Dev environment overrides
 │   ├── values-test.yaml                 # Test environment overrides
 │   ├── values-staging.yaml              # Staging environment overrides
-│   └── values-prod.yaml                 # Production environment overrides
-├── manifests/                           # Kustomize overlays for ArgoCD deployments
-│   └── base/
-│       └── overlays/
-│           ├── dev/                     # Development environment
-│           │   ├── root.yaml            # ArgoCD App-of-Apps root
-│           │   ├── kustomization.yaml
-│           │   ├── application/
-│           │   │   └── applications.yaml    # Microservice application resources
-│           │   ├── airflow/                 # Airflow orchestration (dev)
-│           │   ├── keycloak/                # Keycloak identity provider (dev)
-│           │   └── observability/
-│           │       └── grafana-stack/       # Prometheus, Loki, Grafana (dev)
-│           ├── staging/                 # Staging environment
-│           │   ├── root.yaml            # ArgoCD App-of-Apps root
-│           │   ├── kustomization.yaml
-│           │   ├── application/
-│           │   │   └── applications.yaml
-│           │   ├── observability/
-│           │   │   └── elk-stack/           # Elasticsearch, Kibana (staging)
-│           │   └── keycloak/
-│           └── prod/                    # Production environment
-│               ├── root.yaml            # ArgoCD App-of-Apps root
-│               ├── kustomization.yaml
-│               ├── application/
-│               │   └── applications.yaml
-│               ├── airflow/                 # Airflow (prod)
-│               ├── keycloak/                # Keycloak (prod)
-│               ├── cert-manager/            # TLS certificate automation
-│               ├── external-dns/            # Route53/DNS integration
-│               ├── external-secret/         # Secrets management
-│               └── karpenter/               # Auto-scaling node provisioning
-└── CHART-PUSH.md                        # Guide for pushing charts to ECR
+│   ├── values-prod.yaml                 # Production environment overrides
+│   ├── charts/                          # Helm chart dependencies
+│   └── templates/
+│       ├── _helpers.tpl
+│       ├── api-gateway.yaml
+│       ├── gateway.yaml
+│       ├── gateway-http.yaml
+│       ├── httproute.yaml
+│       ├── peer-authentication.yaml
+│       ├── service.yaml
+│       ├── serviceaccount.yaml
+│       ├── hpa.yaml
+│       ├── ingress.yaml
+│       ├── NOTES.txt
+│       └── tests/
+│           ├── api-gateway-test.yaml
+│           └── test-connection.yaml
+├── infra/                              # Shared infra manifests and overlays
+│   ├── base/
+│   │   ├── kustomization.yaml
+│   │   ├── airflow/
+│   │   │   ├── airflow.yaml
+│   │   │   ├── deployment.yaml
+│   │   │   └── service.yaml
+│   │   └── keycloak/
+│   │       ├── deployment.yaml
+│   │       ├── keycloak-app.yaml
+│   │       └── service.yaml
+│   └── overlays/
+│       ├── dev/
+│       │   ├── kustomization.yaml
+│       │   └── observability/
+│       │       ├── application-loki.yaml
+│       │       └── application-prometheus.yaml
+│       ├── staging/
+│       │   ├── kustomization.yaml
+│       │   └── observability/
+│       │       ├── application-elasticsearch.yaml
+│       │       └── application-kibana.yaml
+│       └── prod/
+│           ├── kustomization.yaml
+│           ├── karpenter/
+│           │   └── nodepool.yaml
+│           └── keycloak/
+│               └── keycloak-gateway.yaml
+├── root/                               # Top-level environment values
+│   ├── dev.yaml
+│   ├── prod.yaml
+│   └── staging.yaml
+├── CHART-PUSH.md                       # Guide for pushing charts to ECR
 ```
 
 **Key Directories:**
 
-- **`charts/`**: Individual Helm charts for each microservice, published to ECR and consumed by ArgoCD
-- **`saas-chart/`**: Orchestration chart for API Gateway, Istio configuration, and shared infrastructure components
-- **`manifests/base/overlays/`**: Environment-specific Kustomize configurations for ArgoCD GitOps deployments
-  - Each environment overlay defines which services and infrastructure components are deployed
-  - Uses ArgoCD Application resources to manage releases
+- **`apps/`**: Root environment manifests and values for dev, staging, and prod
+- **`charts/`**: Individual Helm charts for each microservice
+- **`infra/`**: Shared infrastructure base and overlay manifests
+- **`root/`**: Top-level environment-specific deployment values
+- **`saas-chart/`**: Orchestration Helm chart for API Gateway, Istio/Gateway configuration, and shared infra
 
 ## Architecture Overview
 
@@ -133,18 +132,18 @@ The system follows a microservices architecture with Kubernetes Gateway API for 
 
 ```mermaid
 graph TD
-    EXT["🌐 External Traffic"]
-    EXT -->|HTTP/HTTPS| GW["🚪 Kubernetes Gateway<br/>GatewayClass: nginx<br/>Port 80/443"]
+    EXT["External Traffic"]
+    EXT -->|HTTP/HTTPS| GW["Kubernetes Gateway<br/>GatewayClass: nginx<br/>Port 80/443"]
     
-    GW -->|Route: /api/*| APIGW["🔀 API Gateway Pod<br/>saas-api-service:9000<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
+    GW -->|Route: /api/*| APIGW["API Gateway Pod<br/>saas-api-service:9000<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
     
-    APIGW -->|/api/auth/| AUTH["🔐 Auth Service Pod<br/>Port 8080<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
+    APIGW -->|/api/auth/| AUTH["Auth Service Pod<br/>Port 8080<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
     
-    APIGW -->|/api/subscription/| SUB["📋 Subscription Service Pod<br/>NestJS | Port 8081<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
+    APIGW -->|/api/subscription/| SUB["Subscription Service Pod<br/>NestJS | Port 8081<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
     
-    APIGW -->|/api/billing/| BILL["💳 Billing Service Pod<br/>Spring Boot | Port 8082<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
+    APIGW -->|/api/billing/| BILL["Billing Service Pod<br/>Spring Boot | Port 8082<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
     
-    APIGW -->|/api/usage/| USAGE["📊 Usage Service Pod<br/>Python | Port 8083<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
+    APIGW -->|/api/usage/| USAGE["Usage Service Pod<br/>Python | Port 8083<br/>───────────────────<br/>Istio Sidecar Proxy<br/>(mTLS enforcement)"]
     
     SUB -->|gRPC Port 50051<br/>via Sidecar| BILL
     BILL -->|gRPC Port 50052<br/>via Sidecar| SUB
