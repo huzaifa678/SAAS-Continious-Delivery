@@ -16,6 +16,9 @@ spec:
       valueFiles:
         - values.yaml
         - values-staging.yaml
+      postRenderer:
+        kustomize:
+          dir: post-renderer/saas-chart/overlays/staging
   destination:
     server: https://kubernetes.default.svc
     namespace: saas-apps

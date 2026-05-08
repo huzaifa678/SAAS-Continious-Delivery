@@ -22,6 +22,9 @@ spec:
       valueFiles:
         - values.yaml
         - values-prod.yaml
+      postRenderer:
+        kustomize:
+          dir: post-renderer/saas-chart/overlays/prod
   destination:
     server: https://kubernetes.default.svc
     namespace: saas-apps

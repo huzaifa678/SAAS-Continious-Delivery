@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Base post-renderer for saas-chart (api-gateway).
+# Overlays extend this with env-specific patches.
+
+commonLabels:
+  managed-by: argocd
+  chart: saas-chart
