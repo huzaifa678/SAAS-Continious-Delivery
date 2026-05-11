@@ -79,6 +79,8 @@ spec:
     name: http
   type: ClusterIP
 {{- if .Values.istio.enabled }}
+{{- $cb := .Values.apiGateway.circuitBreaking | default dict }}
+{{- $od := $cb.outlierDetection | default dict }}
 ---
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
@@ -86,6 +88,19 @@ metadata:
   name: {{ $svc }}
 spec:
   host: {{ .Values.apiService }}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: {{ $cb.maxConnections | default 100 }}
+      http:
+        http1MaxPendingRequests: {{ $cb.http1MaxPendingRequests | default 1000 }}
+        http2MaxRequests: {{ $cb.http2MaxRequests | default 1000 }}
+        maxRequestsPerConnection: {{ $cb.maxRequestsPerConnection | default 100 }}
+    outlierDetection:
+      consecutive5xxErrors: {{ $od.consecutive5xxErrors | default 5 }}
+      interval: {{ $od.interval | default "30s" }}
+      baseEjectionTime: {{ $od.baseEjectionTime | default "30s" }}
+      maxEjectionPercent: {{ $od.maxEjectionPercent | default 10 }}
   subsets:
   - name: blue
     labels:
