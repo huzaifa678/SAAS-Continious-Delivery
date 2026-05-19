@@ -1,0 +1,62 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["github-actions", "helmv3", "argocd"],
+
+  "github-actions": {
+    "fileMatch": ["^\\.github/workflows/[^/]+\\.ya?ml$"]
+  },
+
+  "helmv3": {
+    "fileMatch": ["(^|/)Chart\\.ya?ml$"]
+  },
+
+  "argocd": {
+    "fileMatch": [
+      "^apps/.+\\.ya?ml$",
+      "^infra/.+\\.ya?ml$",
+      "^root/.+\\.ya?ml$"
+    ]
+  },
+
+  "packageRules": [
+    {
+      "matchManagers": ["argocd", "helmv3"],
+      "matchPackageNames": ["istio/base", "istiod"],
+      "groupName": "istio"
+    },
+    {
+      "matchManagers": ["argocd"],
+      "matchPackageNames": ["elasticsearch", "kibana"],
+      "groupName": "elastic-stack"
+    },
+    {
+      "matchManagers": ["argocd"],
+      "matchPackageNames": ["loki-stack"],
+      "groupName": "loki"
+    },
+    {
+      "matchManagers": ["argocd"],
+      "matchPackageNames": ["kube-prometheus-stack"],
+      "groupName": "prometheus-stack"
+    },
+    {
+      "matchManagers": ["argocd"],
+      "matchPackageNames": ["auth-service", "billing-service", "subscription-service", "usage-service"],
+      "enabled": false
+    }
+  ],
+
+  "hostRules": [
+    {
+      "matchHost": "123456789.dkr.ecr.us-east-1.amazonaws.com",
+      "hostType": "docker",
+      "username": "AWS",
+      "password": "{{ secrets.ECR_PASSWORD }}"
+    }
+  ],
+
+  "schedule": ["every weekend"],
+  "prCreation": "immediate",
+  "labels": ["dependencies"]
+}
