@@ -58,5 +58,9 @@
 
   "schedule": ["every weekend"],
   "prCreation": "immediate",
-  "labels": ["dependencies"]
+  "labels": ["dependencies"],
+  "automerge": true,
+  "automergeType": "pr",
+  "automergeStrategy": "squash",
+  "platformAutomerge": true
 }
