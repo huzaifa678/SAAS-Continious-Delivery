@@ -21,6 +21,9 @@ GitOps-based continuous delivery repository for the SaaS platform. Uses **indivi
 | OpenTelemetry Collector | Observability | Telemetry aggregation (DaemonSet) |
 | Grafana + Loki + Tempo + Prometheus | Observability | Metrics, logs, and traces stack |
 | Istio | Service Mesh | mTLS, traffic management, sidecar injection |
+| KEDA | Autoscaler | Event-driven horizontal pod autoscaling for all services |
+| Argo Rollouts | Progressive Delivery | Canary rollouts with Istio traffic shifting + Prometheus analysis |
+| Crossplane | Cloud control plane | Manages Postgres databases/roles/grants inside TF-provisioned RDS instances via `AppDatabase` claims |
 
 ## Repository Structure
 
@@ -33,32 +36,44 @@ saas-continious-delivery/
 │   │   ├── values-dev.yaml
 │   │   ├── values-prod.yaml
 │   │   ├── values-staging.yaml
+│   │   ├── values.schema.json           # Generated from CUE — enforced by Helm
 │   │   └── templates/
-│   │       └── deployment.yaml
+│   │       ├── deployment.yaml         # renders argoproj.io/Rollout (canary + Istio)
+│   │       ├── analysistemplate.yaml   # Prometheus success-rate + p95 latency gates
+│   │       └── scaledobject.yaml       # KEDA targets the Rollout (not Deployment)        # KEDA ScaledObject (gated by keda.enabled)
 │   ├── billing-service/                 # Billing & payments service chart
 │   │   ├── Chart.yaml
 │   │   ├── values.yaml
 │   │   ├── values-dev.yaml
 │   │   ├── values-prod.yaml
 │   │   ├── values-staging.yaml
+│   │   ├── values.schema.json
 │   │   └── templates/
-│   │       └── deployment.yaml
+│   │       ├── deployment.yaml         # renders argoproj.io/Rollout (canary + Istio)
+│   │       ├── analysistemplate.yaml   # Prometheus success-rate + p95 latency gates
+│   │       └── scaledobject.yaml       # KEDA targets the Rollout (not Deployment)
 │   ├── subscription-service/            # Subscription management service chart
 │   │   ├── Chart.yaml
 │   │   ├── values.yaml
 │   │   ├── values-dev.yaml
 │   │   ├── values-prod.yaml
 │   │   ├── values-staging.yaml
+│   │   ├── values.schema.json
 │   │   └── templates/
-│   │       └── deployment.yaml
+│   │       ├── deployment.yaml         # renders argoproj.io/Rollout (canary + Istio)
+│   │       ├── analysistemplate.yaml   # Prometheus success-rate + p95 latency gates
+│   │       └── scaledobject.yaml       # KEDA targets the Rollout (not Deployment)
 │   └── usage-service/                   # Usage analytics service chart
 │       ├── Chart.yaml
 │       ├── values.yaml
 │       ├── values-dev.yaml
 │       ├── values-prod.yaml
 │       ├── values-staging.yaml
+│       ├── values.schema.json
 │       └── templates/
-│           └── deployment.yaml
+│           ├── deployment.yaml
+│           ├── analysistemplate.yaml
+│           └── scaledobject.yaml
 ├── saas-chart/                         # Master Helm chart for infrastructure & API Gateway
 │   ├── Chart.yaml                       # Chart metadata + dependencies
 │   ├── gateway-api-crds.yaml            # Kubernetes Gateway API CRDs
@@ -97,11 +112,25 @@ saas-continious-delivery/
 │   └── overlays/
 │       ├── dev/
 │       │   ├── kustomization.yaml
+│       │   ├── keda/
+│       │   │   └── application-keda.yaml
+│       │   ├── argo-rollouts/
+│       │   │   └── application-argo-rollouts.yaml
+│       │   ├── crossplane/
+│       │   │   ├── application-crossplane.yaml
+│       │   │   └── provider-sql.yaml
 │       │   └── observability/
 │       │       ├── application-loki.yaml
 │       │       └── application-prometheus.yaml
 │       ├── staging/
 │       │   ├── kustomization.yaml
+│       │   ├── keda/
+│       │   │   └── application-keda.yaml
+│       │   ├── argo-rollouts/
+│       │   │   └── application-argo-rollouts.yaml
+│       │   ├── crossplane/
+│       │   │   ├── application-crossplane.yaml
+│       │   │   └── provider-sql.yaml
 │       │   └── observability/
 │       │       ├── application-elasticsearch.yaml
 │       │       └── application-kibana.yaml
@@ -109,8 +138,31 @@ saas-continious-delivery/
 │           ├── kustomization.yaml
 │           ├── karpenter/
 │           │   └── nodepool.yaml
+│           ├── keda/
+│           │   └── application-keda.yaml
+│           ├── argo-rollouts/
+│           │   └── application-argo-rollouts.yaml
+│           ├── crossplane/
+│           │   ├── application-crossplane.yaml
+│           │   └── provider-sql.yaml
 │           └── keycloak/
 │               └── keycloak-gateway.yaml
+├── platform/                           # Crossplane XRDs + Compositions (platform API for app teams)
+│   ├── xrds/
+│   │   └── appdatabase.yaml             # CompositeResourceDefinition: kind: AppDatabase
+│   └── compositions/
+│       └── appdatabase-postgres.yaml    # Postgres-backed Composition (Database + Role + Grant)
+├── schemas/                            # CUE schemas for values validation
+│   └── service/
+│       ├── values.cue                   # Shared #Values schema (4 service charts)
+│       └── strict/
+│           └── strict.cue               # Conditional rules used by `cue vet` only
+├── cue.mod/
+│   └── module.cue                       # CUE module declaration
+├── scripts/
+│   ├── gen-values-schema.sh             # CUE → values.schema.json generator
+│   └── vet-values.sh                    # Strict per-env vet (base + env values)
+├── Makefile                            # schema / vet / validate / check-schema targets
 ├── root/                               # Top-level environment values
 │   ├── dev.yaml
 │   ├── prod.yaml
@@ -184,6 +236,10 @@ graph TD
 - ArgoCD installed in the cluster
 - `kubectl` configured for your cluster
 - Istio installed (if `istio.enabled: true`)
+- KEDA (auto-installed via ArgoCD per env — see [Autoscaling with KEDA](#autoscaling-with-keda))
+- Argo Rollouts (auto-installed via ArgoCD per env — see [Progressive Delivery with Argo Rollouts](#progressive-delivery-with-argo-rollouts)). Optional CLI: `kubectl-argo-rollouts`
+- Crossplane (auto-installed via ArgoCD per env — see [Layered IaC with Crossplane](#layered-iac-with-crossplane-postgres-databases-as-a-platform-api)). Requires the TF-managed RDS instance(s) + Secrets Manager admin secret(s) to exist first, and External Secrets Operator with IRSA already granted to read those secrets.
+- For values validation: [`cue`](https://cuelang.org) v0.16+, [`yq`](https://github.com/mikefarah/yq) v4+, [`jq`](https://jqlang.github.io/jq/)
 
 ## Helm Chart Usage
 
@@ -251,12 +307,12 @@ helm test saas --namespace saas-dev
 
 ## ArgoCD GitOps Setup
 
-The `manifests/` directory uses an **App-of-Apps** pattern. A root ArgoCD Application in each environment (`manifests/base/overlays/<env>/root.yaml`) orchestrates all child applications, which in turn deploy microservices using the individual Helm charts from `charts/`.
+This repo uses an **App-of-Apps** pattern. A root ArgoCD Application per environment (`root/<env>.yaml`) bootstraps two child Applications — an infra layer (kustomize overlay under `infra/overlays/<env>`) and an apps layer (microservice Applications from `apps/<env>.yaml`).
 
 ### Deployment Flow
 
-1. **Root Application** (`root.yaml`) — Points to all child applications
-2. **Child Applications** — Each references a Helm chart:
+1. **Root Application** (`root/<env>.yaml`) — Two Applications per env: `infra-<env>` (sync-wave 0) and `apps-<env>` (sync-wave 1)
+2. **Child Applications** (`apps/<env>.yaml`) — Each references a Helm chart:
    - `auth-service` ArgoCD Application → `charts/auth-service/` Helm chart
    - `billing-service` ArgoCD Application → `charts/billing-service/` Helm chart
    - `subscription-service` ArgoCD Application → `charts/subscription-service/` Helm chart
@@ -268,7 +324,7 @@ The `manifests/` directory uses an **App-of-Apps** pattern. A root ArgoCD Applic
 
 ```bash
 # Apply the root ArgoCD application
-kubectl apply -f manifests/base/overlays/dev/root.yaml -n argocd
+kubectl apply -f root/dev.yaml -n argocd
 ```
 
 ArgoCD will then automatically sync all child applications:
@@ -281,7 +337,7 @@ ArgoCD will then automatically sync all child applications:
 ### Bootstrap Staging Environment
 
 ```bash
-kubectl apply -f manifests/base/overlays/staging/root.yaml -n argocd
+kubectl apply -f root/staging.yaml -n argocd
 ```
 
 Syncs microservices + ELK stack (Elasticsearch, Kibana) for observability.
@@ -289,7 +345,7 @@ Syncs microservices + ELK stack (Elasticsearch, Kibana) for observability.
 ### Bootstrap Production Environment
 
 ```bash
-kubectl apply -f manifests/base/overlays/prod/root.yaml -n argocd
+kubectl apply -f root/prod.yaml -n argocd
 ```
 
 Syncs microservices + infrastructure with:
@@ -302,9 +358,9 @@ Syncs microservices + infrastructure with:
 ### Sync Manually
 
 ```bash
-argocd app sync saas-dev
-argocd app sync airflow-dev
-argocd app sync keycloak-dev
+argocd app sync infra-dev
+argocd app sync apps-dev
+argocd app sync auth-service-dev
 ```
 
 ## Key Configuration Values
@@ -417,6 +473,287 @@ helm upgrade billing-service charts/billing-service/ \
   --set image.tag=v1.2.3 \
   --namespace saas-dev
 ```
+
+## Autoscaling with KEDA
+
+[KEDA](https://keda.sh) (Kubernetes Event-driven Autoscaling) is installed as a cluster addon per environment via ArgoCD, and exposes a `ScaledObject` per microservice for CPU/memory-driven (and optional event-driven) scaling.
+
+### Operator install (cluster addon)
+
+Each env overlay wires in its own KEDA Application:
+
+```
+infra/overlays/dev/keda/application-keda.yaml
+infra/overlays/staging/keda/application-keda.yaml
+infra/overlays/prod/keda/application-keda.yaml
+```
+
+They sync from the upstream `kedacore/keda` Helm chart into namespace `keda` at sync-wave `-1` (so KEDA is ready before workloads). Prod runs the operator and metrics server at 2 replicas with PDBs; dev/staging run single-replica defaults.
+
+### Per-service ScaledObject
+
+Each service chart ships a `templates/scaledobject.yaml` gated by `keda.enabled`. It targets the **active blue/green slot** (`<svc>-<activeSlot>`) so KEDA never fights the preview Deployment pinned to 0 replicas. The existing `ignoreDifferences` on `/spec/replicas` in `apps/<env>.yaml` prevents ArgoCD drift from KEDA-driven replica counts.
+
+| Env | Enabled | Replicas | Triggers |
+|---|---|---|---|
+| dev | off | — | — |
+| staging | on | 2–8 | CPU 70%, memory 80% |
+| prod | on | 3–20 | CPU 65%, memory 75%, tuned HPA `behavior` (fast scale-up, gradual scale-down) |
+
+Override per env in `charts/<service>/values-<env>.yaml`:
+
+```yaml
+keda:
+  enabled: true
+  minReplicaCount: 3
+  maxReplicaCount: 20
+  pollingInterval: 15
+  cooldownPeriod: 300
+  triggers:
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "65"
+```
+
+Any KEDA trigger type (Prometheus, Kafka, SQS, …) can be added under `triggers:` — the template forwards them verbatim.
+
+## Progressive Delivery with Argo Rollouts
+
+Each service ships as an **`argoproj.io/Rollout`** (not a `Deployment`) using a **canary strategy** with **Istio traffic shifting** and **Prometheus-driven analysis** between steps. This replaces the previous manual `activeSlot`/`previewSlot` blue-green scheme — Rollouts now owns the ReplicaSets, Istio weights, and promotion decisions.
+
+### Controller install (cluster addon)
+
+Installed per env via ArgoCD, same pattern as KEDA:
+
+```
+infra/overlays/dev/argo-rollouts/application-argo-rollouts.yaml
+infra/overlays/staging/argo-rollouts/application-argo-rollouts.yaml
+infra/overlays/prod/argo-rollouts/application-argo-rollouts.yaml
+```
+
+Pulls `argo/argo-rollouts` upstream chart into namespace `argo-rollouts` at sync-wave `-1`. Prod runs the controller at 2 replicas with PDB; dashboard enabled in all envs. `ServiceMonitor` exposes controller metrics to Prometheus.
+
+### How a rollout works
+
+On every commit that changes `image.tag` in a service's values file:
+
+1. Argo CD syncs the new `Rollout` spec.
+2. Argo Rollouts creates a **new ReplicaSet** alongside the stable one.
+3. Istio `VirtualService` (managed by Rollouts) shifts traffic per `steps:`:
+   - `setWeight: 10` → 10% to canary
+   - `pause: { duration: "2m" }` → soak
+   - `analysis: { templates: [...] }` → run Prometheus queries
+   - `setWeight: 25` → next step…
+4. If any `AnalysisRun` fails its `successCondition`, the Rollout **automatically aborts and reverts** all weight back to stable.
+5. On the final `setWeight: 100`, the canary becomes the new stable; old ReplicaSet is scaled down (last `revisionHistoryLimit` kept for fast rollback).
+
+### Analysis (Prometheus)
+
+Each service chart renders two `AnalysisTemplate`s when `rollout.analysis.enabled: true`:
+
+- **`<svc>-success-rate`** — `irate(istio_requests_total{response_code!~"5.*"}) / irate(istio_requests_total)` ≥ `successRateThreshold` (e.g. 0.995 in prod)
+- **`<svc>-latency-p95`** — `histogram_quantile(0.95, istio_request_duration_milliseconds_bucket)` ≤ `p95LatencyThresholdMs` (e.g. 500 in prod)
+
+Both are queried every `interval` for `count` samples; failing more than `failureLimit` aborts the rollout.
+
+### Per-env canary tiers
+
+| Env | Analysis | Steps | Failure tolerance |
+|---|---|---|---|
+| dev | off | 50% → 10s pause → 100% | — |
+| staging | on (1m × 3 samples) | 20% → analyze → 50% → analyze → 100% | failureLimit 1, success ≥98%, p95 ≤750ms |
+| prod | on (2m × 5 samples) | 10% → 25% → 50% → 75% → 100% with analyze gates between each | failureLimit 1, success ≥99.5%, p95 ≤500ms |
+
+Override per service in `charts/<svc>/values-<env>.yaml`:
+
+```yaml
+rollout:
+  maxSurge: "10%"
+  analysis:
+    enabled: true
+    successRateThreshold: 0.995
+    p95LatencyThresholdMs: 500
+  steps:
+    - setWeight: 10
+    - pause: { duration: "2m" }
+    - analysis:
+        templates:
+          - templateName: usage-service-success-rate
+          - templateName: usage-service-latency-p95
+    # ...
+```
+
+### Interaction with KEDA
+
+KEDA's `ScaledObject` now targets the `Rollout` directly:
+
+```yaml
+scaleTargetRef:
+  apiVersion: argoproj.io/v1alpha1
+  kind: Rollout
+  name: usage-service
+```
+
+KEDA scales the *active* ReplicaSet (whichever Rollouts marks as stable); during a canary, Rollouts owns the canary ReplicaSet's replica count via `setWeight` math. No conflict.
+
+### ArgoCD drift handling
+
+`apps/<env>.yaml` ignores fields Rollouts mutates at runtime:
+
+```yaml
+ignoreDifferences:
+  - group: argoproj.io
+    kind: Rollout
+    jsonPointers: [/spec/replicas]
+  - group: networking.istio.io
+    kind: VirtualService
+    jsonPointers: [/spec/http]   # weight shifting
+```
+
+### Manual control
+
+```bash
+kubectl argo rollouts get rollout usage-service -n saas-apps
+kubectl argo rollouts promote usage-service -n saas-apps       # skip current pause
+kubectl argo rollouts abort   usage-service -n saas-apps       # revert canary
+kubectl argo rollouts retry   usage-service -n saas-apps       # after fix
+```
+
+> **Note:** `api-gateway` in `saas-chart/` still uses the manual blue-green Deployment scheme. Migrating it to a Rollout is a separate follow-up.
+
+## Layered IaC with Crossplane (Postgres databases as a platform API)
+
+This repo demonstrates the **enterprise hybrid IaC pattern**: Terraform owns the heavy stateful AWS resources (RDS *instances*, VPCs, EKS, KMS), and Crossplane owns the *granular, dynamic* layer (per-app databases, roles, grants — and in future S3 buckets, IAM roles, SQS queues).
+
+### Why layered, not "all-Crossplane"
+
+Moving an RDS *instance* to Crossplane is what most portfolio examples do, but it's wrong for prod:
+
+- RDS is the most pet-like resource in AWS — stateful, multi-year lifecycle, deletion catastrophic.
+- Argo CD `prune: true` + Crossplane-managed RDS = one bad PR away from data loss.
+- TF state has DynamoDB locking + explicit `terraform destroy`; the safety margin is much higher for stateful resources.
+
+What *does* belong in Crossplane: the **dynamic, recurring layer inside the instance** (databases, roles, grants, schemas) and other genuinely cattle-like cloud resources (S3 buckets, SQS queues, per-service IAM roles). That's what real Crossplane case studies (Deutsche Bahn, Autodesk, Grupo Boticário) actually do.
+
+### Ownership split
+
+| Layer | Tool | Lives in | Examples |
+|---|---|---|---|
+| Cloud foundation | Terraform | `saas-services-infra/` | VPC, EKS, RDS instances, KMS, base IAM, IRSA roles for controllers |
+| In-instance dynamic | Crossplane | `saas-continious-delivery/` (this repo) | Postgres databases, roles, grants |
+| Cluster addons | Helm via ArgoCD | this repo | KEDA, Argo Rollouts, Crossplane operator, Prometheus, Loki |
+| Workloads | Helm via ArgoCD | this repo | The 4 microservices |
+
+### Architecture
+
+```
+       TF: aws_db_instance.rds_usage      ←─ instance container
+                  │
+                  │ admin creds → AWS Secrets Manager
+                  ▼
+       External Secrets Operator           ←─ existing IRSA, no changes needed
+                  │
+                  │ k8s Secret (rds-usage-admin) in crossplane-system
+                  ▼
+       Crossplane ProviderConfig (rds-usage)
+                  │
+                  │ provider-sql connects to RDS over network (5432, SG already permits)
+                  ▼
+       AppDatabase claim (in app namespace)
+                  │
+                  │ Composition fans out into:
+                  ▼
+       Database + Role + Grant + connection Secret  ←─ Postgres-level resources
+                  │
+                  ▼
+       App pod mounts `usage-service-db` Secret as env vars
+```
+
+### What this repo ships
+
+**Operator + provider** ([infra/overlays/&lt;env&gt;/crossplane/](infra/overlays/dev/crossplane/)):
+
+- `application-crossplane.yaml` — Crossplane v1.16.0 operator (dev: 1 replica; staging/prod: 2 replicas + PDB), sync-wave `-2`
+- `provider-sql.yaml` — installs `crossplane-contrib/provider-sql:v0.10.0`, plus the `ExternalSecret` and `ProviderConfig` for `rds_usage`
+
+**Platform API** ([platform/](platform/)):
+
+- `xrds/appdatabase.yaml` — defines `kind: AppDatabase` claim with validated parameters (`databaseName`, `owner`, `instance ∈ {auth,billing,subscription,usage,keycloak}`, optional `extensions`)
+- `compositions/appdatabase-postgres.yaml` — fans out into `Role` (Postgres user, login privilege) + `Database` (owned by the role) + `Grant` (ALL privileges)
+- Synced as a separate `platform-<env>` ArgoCD Application with `prune: false` so XRDs/Compositions are never auto-deleted (deliberate platform contract)
+
+**App-team API** (in any service Helm chart):
+
+```yaml
+# charts/usage-service/values-prod.yaml
+database:
+  enabled: true
+  instance: usage              # → uses ProviderConfig `rds-usage`
+  databaseName: usage_app
+  owner: usage_app
+  extensions:
+    - uuid-ossp
+    - pgcrypto
+```
+
+The chart renders a `kind: AppDatabase` CR. Crossplane reconciles into the underlying Postgres resources and writes a `usage-service-db` Secret with `host`, `port`, `database`, `username`, `password`, `dsn` — mount it into the pod as env vars.
+
+### What this repo deliberately doesn't ship (yet)
+
+- `provider-aws` and the `ServiceBucket` / `ServiceIRSA` XRDs — these would need a new narrow-scope IRSA role added to `modules/iam/main.tf` in the TF repo. Pattern is the same as `external_secrets_irsa`.
+- ProviderConfig + ExternalSecret for the other 4 RDS instances (`auth`, `billing`, `subscription`, `keycloak`) — copy-paste of [infra/overlays/dev/crossplane/provider-sql.yaml](infra/overlays/dev/crossplane/provider-sql.yaml) with the matching Secrets Manager key.
+- `api-gateway` migration to Rollouts (still uses manual blue/green Deployments in `saas-chart/`).
+
+### Sync ordering
+
+`infra-<env>` (kustomize) applies in sync-wave order:
+
+1. `-2`: Crossplane operator chart → CRDs available
+2. `-1`: `Provider` (provider-sql package install) → composite resource CRDs available (`Database`, `Role`, `Grant`, `ProviderConfig`)
+3. `0`: `ExternalSecret` → k8s Secret materialized from Secrets Manager
+4. `1`: `ProviderConfig` → references the Secret
+
+Then `platform-<env>` (sync-wave `0` at the app-of-apps level) syncs XRDs + Compositions.
+
+Then `apps-<env>` (sync-wave `2`) syncs the service charts, whose `AppDatabase` claims are now valid.
+
+## Values Validation with CUE
+
+Helm chart values are validated by two complementary layers, both authored from a **single CUE source of truth** at `schemas/service/`:
+
+1. **`values.schema.json`** (generated, committed per chart) — Helm validates natively on every `install`/`upgrade`/`template`, so ArgoCD also enforces it at sync time. Catches: wrong types, out-of-range numbers, missing required fields, **typoed keys** (`additionalProperties: false`).
+2. **`cue vet`** in CI — operates on the merged `(values.yaml + values-<env>.yaml)` and additionally enforces **conditional rules** that JSON Schema can't express, e.g. *"if `keda.enabled: true` then `triggers` must be non-empty."*
+
+### Authoring schemas
+
+```
+schemas/service/values.cue        # #Values, #Image, #Probe, #Keda, ...  (exports to OpenAPI)
+schemas/service/strict/strict.cue # adds `if enabled { triggers!: [...] }` — vet only
+```
+
+### Make targets
+
+```bash
+make schema        # regenerate values.schema.json for all 4 service charts
+make vet           # strict cue vet of merged values for every svc/env
+make validate      # schema + vet + helm template across all svc/env combos
+make check-schema  # CI gate: fail if values.schema.json drifted from CUE
+```
+
+### CI
+
+[`.github/workflows/validate-values.yml`](.github/workflows/validate-values.yml) runs on PRs that touch `charts/`, `schemas/`, or the generator scripts. It:
+
+1. Runs `make check-schema` — blocks PRs that edit CUE but forget to regenerate `values.schema.json`.
+2. Runs `make vet` — strict per-env validation.
+3. Runs `helm template` for all 12 service/env combos — exercises the schema as Helm/ArgoCD will.
+
+### Dev workflow
+
+1. Edit `schemas/service/values.cue`.
+2. `make schema` — regenerates `charts/*/values.schema.json`.
+3. Commit both the CUE change and the generated schema files.
 
 ## License
 

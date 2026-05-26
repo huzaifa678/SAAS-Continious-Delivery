@@ -1,19 +1,12 @@
 replicas: 3
 
 image:
-  repository: ""  
+  repository: ""
   tag: "prod"
 
 istio:
   enabled: true
   revision: ""
-
-blueGreen:
-  activeSlot: blue
-  previewSlot: green
-  previewTag: "prod"
-  activeWeight: 100
-  previewWeight: 0
 
 circuitBreaking:
   maxConnections: 100
@@ -35,6 +28,53 @@ readinessProbe:
   path: /healthz/ready
   initialDelaySeconds: 30
   periodSeconds: 5
+
+# Prod: long-window canary with strict analysis gates
+rollout:
+  maxSurge: "10%"
+  maxUnavailable: 0
+  analysis:
+    enabled: true
+    interval: "2m"
+    count: 5
+    failureLimit: 1
+    successRateThreshold: 0.995
+    p95LatencyThresholdMs: 500
+  steps:
+    - setWeight: 10
+    - pause:
+        duration: "2m"
+    - analysis:
+        templates:
+          - templateName: usage-service-success-rate
+          - templateName: usage-service-latency-p95
+    - setWeight: 25
+    - pause:
+        duration: "5m"
+    - analysis:
+        templates:
+          - templateName: usage-service-success-rate
+          - templateName: usage-service-latency-p95
+    - setWeight: 50
+    - pause:
+        duration: "5m"
+    - analysis:
+        templates:
+          - templateName: usage-service-success-rate
+          - templateName: usage-service-latency-p95
+    - setWeight: 75
+    - pause:
+        duration: "5m"
+    - setWeight: 100
+
+database:
+  enabled: true
+  instance: usage
+  databaseName: usage_app
+  owner: usage_app
+  extensions:
+    - uuid-ossp
+    - pgcrypto
 
 keda:
   enabled: true

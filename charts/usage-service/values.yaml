@@ -9,12 +9,31 @@ istio:
   enabled: false
   revision: ""
 
-blueGreen:
-  activeSlot: blue
-  previewSlot: green
-  previewTag: "latest"
-  activeWeight: 100
-  previewWeight: 0
+rollout:
+  revisionHistoryLimit: 5
+  maxSurge: "25%"
+  maxUnavailable: 0
+  analysis:
+    enabled: false
+    provider: prometheus
+    startingStep: 1
+    interval: "1m"
+    count: 5
+    failureLimit: 2
+    successRateThreshold: 0.99
+    p95LatencyThresholdMs: 500
+    prometheusAddress: "http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090"
+    templates:
+      - templateName: usage-service-success-rate
+      - templateName: usage-service-latency-p95
+  steps:
+    - setWeight: 25
+    - pause:
+        duration: "30s"
+    - setWeight: 50
+    - pause:
+        duration: "30s"
+    - setWeight: 100
 
 livenessProbe:
   path: /healthz/live
@@ -25,6 +44,16 @@ readinessProbe:
   path: /healthz/ready
   initialDelaySeconds: 30
   periodSeconds: 5
+
+# Crossplane-managed Postgres database inside the TF-provisioned RDS instance.
+# When enabled, renders a `kind: AppDatabase` claim that Crossplane reconciles into
+# Database + Role + Grant + connection Secret (named `<svc>-db` in the chart namespace).
+database:
+  enabled: false
+  instance: usage             # which RDS instance — maps to ProviderConfig `rds-<instance>`
+  databaseName: usage_app     # lowercase + underscores, <=63 chars
+  owner: usage_app            # postgres role; gets ALL privileges on the db
+  extensions: []              # e.g. ["uuid-ossp", "pgcrypto"]
 
 keda:
   enabled: false

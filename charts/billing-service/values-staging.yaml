@@ -19,6 +19,32 @@ circuitBreaking:
     baseEjectionTime: "30s"
     maxEjectionPercent: 10
 
+# Staging: full canary progression with Prometheus analysis between steps
+rollout:
+  analysis:
+    enabled: true
+    interval: "1m"
+    count: 3
+    failureLimit: 1
+    successRateThreshold: 0.98
+    p95LatencyThresholdMs: 750
+  steps:
+    - setWeight: 20
+    - pause:
+        duration: "1m"
+    - analysis:
+        templates:
+          - templateName: billing-service-success-rate
+          - templateName: billing-service-latency-p95
+    - setWeight: 50
+    - pause:
+        duration: "1m"
+    - analysis:
+        templates:
+          - templateName: billing-service-success-rate
+          - templateName: billing-service-latency-p95
+    - setWeight: 100
+
 keda:
   enabled: true
   minReplicaCount: 2

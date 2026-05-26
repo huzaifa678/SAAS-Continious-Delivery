@@ -1,0 +1,78 @@
+---
+# Crossplane provider that manages Postgres-level resources (Database, Role, Grant)
+# over a direct SQL connection. Does NOT talk to AWS APIs — no IRSA needed.
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-sql
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  package: xpkg.upbound.io/crossplane-contrib/provider-sql:v0.10.0
+  packagePullPolicy: IfNotPresent
+  revisionActivationPolicy: Automatic
+  revisionHistoryLimit: 1
+---
+# ExternalSecret pulls the admin credentials TF wrote to Secrets Manager
+# (modules/rds/main.tf: aws_secretsmanager_secret.db) and materializes them
+# as a k8s Secret that provider-sql's ProviderConfig consumes.
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: rds-usage-admin
+  namespace: crossplane-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: rds-usage-admin
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      data:
+        # provider-sql ProviderConfig expects the full DSN as `data`.
+        # Format: postgresql://user:password@host:port/dbname?sslmode=require
+        data: |
+          postgresql://{{ .username }}:{{ .password }}@{{ .endpoint }}/{{ .db_name }}?sslmode=require
+        username: "{{ .username }}"
+        password: "{{ .password }}"
+        endpoint: "{{ .endpoint }}"
+        db_name: "{{ .db_name }}"
+  data:
+    - secretKey: username
+      remoteRef:
+        key: usage-prod-secret
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: usage-prod-secret
+        property: password
+    - secretKey: endpoint
+      remoteRef:
+        key: usage-prod-secret
+        property: endpoint
+    - secretKey: db_name
+      remoteRef:
+        key: usage-prod-secret
+        property: db_name
+---
+# ProviderConfig tells provider-sql HOW to reach rds_usage and authenticate.
+# One ProviderConfig per RDS instance; AppDatabase claims pick which one to use
+# via spec.parameters.instance ("usage" → name: rds-usage).
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: rds-usage
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  credentials:
+    source: PostgreSQLConnectionSecret
+    connectionSecretRef:
+      namespace: crossplane-system
+      name: rds-usage-admin
+  sslMode: require

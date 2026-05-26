@@ -1,0 +1,51 @@
+name: validate-values
+
+on:
+  pull_request:
+    paths:
+      - 'charts/**'
+      - 'schemas/**'
+      - 'scripts/gen-values-schema.sh'
+      - 'scripts/vet-values.sh'
+      - 'cue.mod/**'
+      - '.github/workflows/validate-values.yml'
+  push:
+    branches: [main]
+
+jobs:
+  cue-and-helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install CUE
+        uses: cue-lang/setup-cue@v1.0.1
+        with:
+          version: v0.16.1
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.53.2/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Install helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.15.0
+
+      - name: Check generated values.schema.json is in sync with CUE
+        run: make check-schema
+
+      - name: cue vet (strict, includes conditional constraints)
+        run: make vet
+
+      - name: helm template (uses values.schema.json natively)
+        run: |
+          for svc in auth-service billing-service subscription-service usage-service; do
+            for env in dev staging prod; do
+              echo "=== $svc / $env ==="
+              helm template t charts/$svc \
+                -f charts/$svc/values.yaml \
+                -f charts/$svc/values-$env.yaml > /dev/null
+            done
+          done

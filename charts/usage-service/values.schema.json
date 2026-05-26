@@ -1,0 +1,456 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "title": "usage-service values",
+  "$defs": {
+    "CircuitBreaking": {
+      "type": "object",
+      "properties": {
+        "maxConnections": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "http1MaxPendingRequests": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "http2MaxRequests": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "maxRequestsPerConnection": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "outlierDetection": {
+          "$ref": "#/$defs/OutlierDetection"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Database": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "instance",
+        "databaseName",
+        "owner"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "instance": {
+          "type": "string",
+          "enum": [
+            "auth",
+            "billing",
+            "subscription",
+            "usage",
+            "keycloak"
+          ]
+        },
+        "databaseName": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+        },
+        "owner": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+        },
+        "extensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Image": {
+      "type": "object",
+      "required": [
+        "repository",
+        "tag"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string"
+        },
+        "tag": {
+          "type": "string",
+          "pattern": ".+"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Istio": {
+      "type": "object",
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "revision": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Keda": {
+      "type": "object",
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "minReplicaCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxReplicaCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pollingInterval": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "cooldownPeriod": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fallback": {
+          "type": "object"
+        },
+        "advanced": {
+          "type": "object"
+        },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/KedaTrigger"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "KedaTrigger": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "pattern": ".+"
+        },
+        "metricType": {
+          "type": "string",
+          "enum": [
+            "Utilization",
+            "AverageValue",
+            "Value"
+          ]
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "OutlierDetection": {
+      "type": "object",
+      "properties": {
+        "consecutive5xxErrors": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "interval": {
+          "type": "string",
+          "pattern": "^[0-9]+(ms|s|m|h)$"
+        },
+        "baseEjectionTime": {
+          "type": "string",
+          "pattern": "^[0-9]+(ms|s|m|h)$"
+        },
+        "maxEjectionPercent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "additionalProperties": false
+    },
+    "Probe": {
+      "type": "object",
+      "required": [
+        "path",
+        "initialDelaySeconds",
+        "periodSeconds"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "initialDelaySeconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "periodSeconds": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "Rollout": {
+      "type": "object",
+      "required": [
+        "steps",
+        "analysis"
+      ],
+      "properties": {
+        "revisionHistoryLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxSurge": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "maxUnavailable": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RolloutStep"
+          }
+        },
+        "analysis": {
+          "$ref": "#/$defs/RolloutAnalysis"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RolloutAnalysis": {
+      "type": "object",
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "prometheus"
+          ]
+        },
+        "startingStep": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "templates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "templateName"
+            ],
+            "properties": {
+              "templateName": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "prometheusAddress": {
+          "type": "string"
+        },
+        "interval": {
+          "type": "string",
+          "pattern": "^[0-9]+(ms|s|m|h)$"
+        },
+        "count": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "failureLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "successRateThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p95LatencyThresholdMs": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "RolloutStep": {
+      "description": "Open struct — any combination of step keys may appear. Stricter \"exactly one of\"\nvalidation lives in schemas/service/strict and runs via `cue vet` in CI.",
+      "type": "object",
+      "properties": {
+        "setWeight": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "pause": {
+          "type": "object",
+          "properties": {
+            "duration": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "setCanaryScale": {
+          "type": "object",
+          "properties": {
+            "weight": {
+              "type": "integer"
+            },
+            "replicas": {
+              "type": "integer"
+            },
+            "matchTrafficWeight": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "analysis": {
+          "type": "object",
+          "properties": {
+            "templates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "templateName": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  },
+                  "valueFrom": {
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "Values": {
+      "type": "object",
+      "required": [
+        "replicas",
+        "port",
+        "image",
+        "istio",
+        "rollout",
+        "livenessProbe",
+        "readinessProbe",
+        "keda"
+      ],
+      "properties": {
+        "replicas": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "image": {
+          "$ref": "#/$defs/Image"
+        },
+        "istio": {
+          "$ref": "#/$defs/Istio"
+        },
+        "rollout": {
+          "$ref": "#/$defs/Rollout"
+        },
+        "livenessProbe": {
+          "$ref": "#/$defs/Probe"
+        },
+        "readinessProbe": {
+          "$ref": "#/$defs/Probe"
+        },
+        "circuitBreaking": {
+          "$ref": "#/$defs/CircuitBreaking"
+        },
+        "keda": {
+          "$ref": "#/$defs/Keda"
+        },
+        "database": {
+          "$ref": "#/$defs/Database"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/$defs/Values"
+    }
+  ]
+}

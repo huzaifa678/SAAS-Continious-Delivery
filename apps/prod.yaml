@@ -86,10 +86,14 @@ spec:
       - PruneLast=true
       - ApplyOutOfSyncOnly=true
   ignoreDifferences:
-    - group: apps
-      kind: Deployment
+    - group: argoproj.io
+      kind: Rollout
       jsonPointers:
         - /spec/replicas
+    - group: networking.istio.io
+      kind: VirtualService
+      jsonPointers:
+        - /spec/http
     - group: networking.istio.io
       kind: VirtualService
       jsonPointers:
@@ -129,10 +133,14 @@ spec:
       - PruneLast=true
       - ApplyOutOfSyncOnly=true
   ignoreDifferences:
-    - group: apps
-      kind: Deployment
+    - group: argoproj.io
+      kind: Rollout
       jsonPointers:
         - /spec/replicas
+    - group: networking.istio.io
+      kind: VirtualService
+      jsonPointers:
+        - /spec/http
     - group: networking.istio.io
       kind: VirtualService
       jsonPointers:
@@ -172,10 +180,14 @@ spec:
       - PruneLast=true
       - ApplyOutOfSyncOnly=true
   ignoreDifferences:
-    - group: apps
-      kind: Deployment
+    - group: argoproj.io
+      kind: Rollout
       jsonPointers:
         - /spec/replicas
+    - group: networking.istio.io
+      kind: VirtualService
+      jsonPointers:
+        - /spec/http
     - group: networking.istio.io
       kind: VirtualService
       jsonPointers:
@@ -215,10 +227,14 @@ spec:
       - PruneLast=true
       - ApplyOutOfSyncOnly=true
   ignoreDifferences:
-    - group: apps
-      kind: Deployment
+    - group: argoproj.io
+      kind: Rollout
       jsonPointers:
         - /spec/replicas
+    - group: networking.istio.io
+      kind: VirtualService
+      jsonPointers:
+        - /spec/http
     - group: networking.istio.io
       kind: VirtualService
       jsonPointers:
@@ -260,3 +276,33 @@ spec:
       - CreateNamespace=true
       - PruneLast=true
       - ApplyOutOfSyncOnly=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-prod
+  namespace: argocd
+  annotations:
+    # After Crossplane operator + providers (sync waves -2 to 1 in infra-prod),
+    # but before service workloads that claim AppDatabase (sync wave 2 in apps-prod).
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+    targetRevision: main
+    path: platform
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: crossplane-system
+  syncPolicy:
+    automated:
+      prune: false       # XRDs + Compositions are cluster-scoped platform contracts;
+      selfHeal: true     # never prune via Argo. Delete by removing the file + manual cleanup.
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true

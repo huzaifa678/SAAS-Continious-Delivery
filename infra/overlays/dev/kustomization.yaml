@@ -6,3 +6,6 @@ resources:
   - observability/application-prometheus.yaml
   - observability/application-loki.yaml
   - keda/application-keda.yaml
+  - argo-rollouts/application-argo-rollouts.yaml
+  - crossplane/application-crossplane.yaml
+  - crossplane/provider-sql.yaml

@@ -1,63 +1,133 @@
 {{- $svc := "billing-service" }}
-{{- $bg := .Values.blueGreen }}
-{{- range list "blue" "green" }}
-{{- $slot := . }}
-{{- $active := eq $slot $bg.activeSlot }}
-apiVersion: apps/v1
-kind: Deployment
+{{- $r := .Values.rollout }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
-  name: {{ $svc }}-{{ $slot }}
+  name: {{ $svc }}
   labels:
     app: {{ $svc }}
-    slot: {{ $slot }}
 spec:
-  replicas: {{ if $active }}{{ $.Values.replicas }}{{ else }}0{{ end }}
+  replicas: {{ .Values.replicas }}
+  revisionHistoryLimit: {{ $r.revisionHistoryLimit | default 5 }}
   selector:
     matchLabels:
       app: {{ $svc }}
-      slot: {{ $slot }}
   template:
     metadata:
       labels:
         app: {{ $svc }}
-        slot: {{ $slot }}
-      {{- if $.Values.istio.enabled }}
+      {{- if .Values.istio.enabled }}
       annotations:
         sidecar.istio.io/inject: "true"
-        {{- if $.Values.istio.revision }}
-        istio.io/rev: {{ $.Values.istio.revision | quote }}
+        {{- if .Values.istio.revision }}
+        istio.io/rev: {{ .Values.istio.revision | quote }}
         {{- end }}
       {{- end }}
     spec:
       containers:
       - name: {{ $svc }}
-        image: {{ if $active }}{{ $.Values.image.repository }}:{{ $.Values.image.tag }}{{ else }}{{ $.Values.image.repository }}:{{ $.Values.blueGreen.previewTag }}{{ end }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: Always
         ports:
-        - containerPort: {{ $.Values.port }}
+        - containerPort: {{ .Values.port }}
           name: http
         livenessProbe:
           httpGet:
-            path: {{ $.Values.livenessProbe.path }}
-            port: {{ $.Values.port }}
-          initialDelaySeconds: {{ $.Values.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ $.Values.livenessProbe.periodSeconds }}
+            path: {{ .Values.livenessProbe.path }}
+            port: {{ .Values.port }}
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
         readinessProbe:
           httpGet:
-            path: {{ $.Values.readinessProbe.path }}
-            port: {{ $.Values.port }}
-          initialDelaySeconds: {{ $.Values.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ $.Values.readinessProbe.periodSeconds }}
+            path: {{ .Values.readinessProbe.path }}
+            port: {{ .Values.port }}
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
           failureThreshold: 3
           timeoutSeconds: 1
+  strategy:
+    canary:
+      canaryService: {{ $svc }}-canary
+      stableService: {{ $svc }}-stable
+      {{- if .Values.istio.enabled }}
+      trafficRouting:
+        istio:
+          virtualServices:
+          - name: {{ $svc }}
+            routes:
+            - primary
+          destinationRule:
+            name: {{ $svc }}
+            canarySubsetName: canary
+            stableSubsetName: stable
+      {{- end }}
+      maxSurge: {{ $r.maxSurge | default "25%" | quote }}
+      maxUnavailable: {{ $r.maxUnavailable | default 0 }}
+      {{- with $r.analysis }}
+      {{- if .enabled }}
+      analysis:
+        startingStep: {{ .startingStep | default 1 }}
+        templates:
+        {{- range .templates }}
+        - templateName: {{ .templateName }}
+        {{- end }}
+        args:
+        - name: service-name
+          value: {{ $svc }}
+        - name: namespace
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+      {{- end }}
+      {{- end }}
+      steps:
+      {{- range $r.steps }}
+        - {{ toYaml . | nindent 10 | trim }}
+      {{- end }}
 ---
-{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $svc }}-stable
+  labels:
+    app: {{ $svc }}
+    rollouts-pod-template-hash: stable
+spec:
+  selector:
+    app: {{ $svc }}
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: http
+    name: http
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $svc }}-canary
+  labels:
+    app: {{ $svc }}
+    rollouts-pod-template-hash: canary
+spec:
+  selector:
+    app: {{ $svc }}
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: http
+    name: http
+  type: ClusterIP
+---
+# Backwards-compatible Service name for existing consumers (api-gateway, KEDA, etc.)
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ $svc }}
+  labels:
+    app: {{ $svc }}
 spec:
   selector:
     app: {{ $svc }}
@@ -91,12 +161,12 @@ spec:
       baseEjectionTime: {{ $od.baseEjectionTime | default "30s" }}
       maxEjectionPercent: {{ $od.maxEjectionPercent | default 10 }}
   subsets:
-  - name: blue
+  - name: stable
     labels:
-      slot: blue
-  - name: green
+      app: {{ $svc }}
+  - name: canary
     labels:
-      slot: green
+      app: {{ $svc }}
 ---
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
@@ -106,13 +176,14 @@ spec:
   hosts:
   - {{ $svc }}
   http:
-  - route:
+  - name: primary
+    route:
     - destination:
         host: {{ $svc }}
-        subset: {{ .Values.blueGreen.activeSlot }}
-      weight: {{ .Values.blueGreen.activeWeight }}
+        subset: stable
+      weight: 100
     - destination:
         host: {{ $svc }}
-        subset: {{ .Values.blueGreen.previewSlot }}
-      weight: {{ .Values.blueGreen.previewWeight }}
+        subset: canary
+      weight: 0
 {{- end }}

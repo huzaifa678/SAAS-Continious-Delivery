@@ -1,0 +1,63 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xappdatabases.platform.saas.example
+spec:
+  group: platform.saas.example
+  names:
+    kind: XAppDatabase
+    plural: xappdatabases
+  # Namespaced claim — app teams create `AppDatabase` in their namespace,
+  # Crossplane creates the cluster-scoped XAppDatabase + composed Database/Role/Grant.
+  claimNames:
+    kind: AppDatabase
+    plural: appdatabases
+  defaultCompositionRef:
+    name: appdatabase.postgres.platform.saas.example
+  connectionSecretKeys:
+    - username
+    - password
+    - host
+    - port
+    - database
+    - dsn
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [parameters]
+              properties:
+                parameters:
+                  type: object
+                  required: [databaseName, owner, instance]
+                  properties:
+                    databaseName:
+                      type: string
+                      pattern: '^[a-z][a-z0-9_]{0,62}$'
+                      description: Postgres database name. Lowercase + underscores; max 63 chars.
+                    owner:
+                      type: string
+                      pattern: '^[a-z][a-z0-9_]{0,62}$'
+                      description: Postgres role that will own the database and have ALL privileges.
+                    instance:
+                      type: string
+                      enum: [auth, billing, subscription, usage, keycloak]
+                      description: Which RDS instance to create the database in. Maps to ProviderConfig `rds-<instance>`.
+                    extensions:
+                      type: array
+                      description: Postgres extensions to enable in the new database (e.g. uuid-ossp, pgcrypto).
+                      items:
+                        type: string
+                status:
+                  type: object
+                  properties:
+                    ready:
+                      type: boolean
+                    connectionSecret:
+                      type: string

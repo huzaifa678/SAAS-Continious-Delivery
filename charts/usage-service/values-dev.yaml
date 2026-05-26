@@ -1,7 +1,7 @@
 replicas: 1
 
 image:
-  repository: ""  
+  repository: ""
   tag: "dev"
 
 istio:
@@ -17,6 +17,24 @@ circuitBreaking:
     interval: "30s"
     baseEjectionTime: "30s"
     maxEjectionPercent: 10
+
+# Dev: fast canary, no analysis (no Prometheus dependency in dev path)
+rollout:
+  analysis:
+    enabled: false
+  steps:
+    - setWeight: 50
+    - pause:
+        duration: "10s"
+    - setWeight: 100
+
+database:
+  enabled: true
+  instance: usage
+  databaseName: usage_app
+  owner: usage_app
+  extensions:
+    - uuid-ossp
 
 keda:
   enabled: false

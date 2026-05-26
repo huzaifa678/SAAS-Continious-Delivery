@@ -7,5 +7,15 @@ image:
 istio:
   enabled: false
 
+# Dev: fast canary, no analysis (no Prometheus dependency in dev path)
+rollout:
+  analysis:
+    enabled: false
+  steps:
+    - setWeight: 50
+    - pause:
+        duration: "10s"
+    - setWeight: 100
+
 keda:
   enabled: false

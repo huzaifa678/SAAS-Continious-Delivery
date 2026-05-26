@@ -1,0 +1,22 @@
+{{- if .Values.database.enabled }}
+{{- $svc := "usage-service" }}
+apiVersion: platform.saas.example/v1alpha1
+kind: AppDatabase
+metadata:
+  name: {{ $svc }}
+  labels:
+    app: {{ $svc }}
+spec:
+  parameters:
+    databaseName: {{ .Values.database.databaseName | quote }}
+    owner:        {{ .Values.database.owner | quote }}
+    instance:     {{ .Values.database.instance | quote }}
+    {{- with .Values.database.extensions }}
+    extensions:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  # Crossplane writes the connection details (host, port, db, user, password, dsn)
+  # to this Secret in the same namespace. Mount it into the service Pod.
+  writeConnectionSecretToRef:
+    name: {{ $svc }}-db
+{{- end }}
