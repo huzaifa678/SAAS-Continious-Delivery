@@ -17,3 +17,6 @@ circuitBreaking:
     interval: "30s"
     baseEjectionTime: "30s"
     maxEjectionPercent: 10
+
+keda:
+  enabled: false

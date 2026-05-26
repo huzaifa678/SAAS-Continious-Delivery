@@ -11,3 +11,4 @@ resources:
   - ../../base/airflow/service.yaml
   - keycloak/keycloak-gateway.yaml
   - karpenter/nodepool.yaml
+  - keda/application-keda.yaml

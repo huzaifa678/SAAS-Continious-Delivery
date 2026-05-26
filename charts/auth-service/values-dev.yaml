@@ -6,3 +6,6 @@ image:
 
 istio:
   enabled: false
+
+keda:
+  enabled: false

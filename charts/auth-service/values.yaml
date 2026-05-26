@@ -30,3 +30,17 @@ readinessProbe:
   path: /healthz/ready
   initialDelaySeconds: 10
   periodSeconds: 5
+
+keda:
+  enabled: false
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  pollingInterval: 30
+  cooldownPeriod: 300
+  fallback: {}
+  advanced: {}
+  triggers:
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"
