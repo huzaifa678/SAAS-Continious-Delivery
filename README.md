@@ -675,7 +675,7 @@ What *does* belong in Crossplane: the **dynamic, recurring layer inside the inst
 **Operator + provider** ([infra/overlays/&lt;env&gt;/crossplane/](infra/overlays/dev/crossplane/)):
 
 - `application-crossplane.yaml` — Crossplane v1.16.0 operator (dev: 1 replica; staging/prod: 2 replicas + PDB), sync-wave `-2`
-- `provider-sql.yaml` — installs `crossplane-contrib/provider-sql:v0.10.0`, plus the `ExternalSecret` and `ProviderConfig` for `rds_usage`
+- `provider-sql.yaml` — installs `crossplane-contrib/provider-sql:v0.10.0` plus an `ExternalSecret` + `ProviderConfig` for **all five** RDS instances: `rds-auth`, `rds-billing`, `rds-subscription`, `rds-usage`, `rds-keycloak`. Each ExternalSecret pulls from the matching Secrets Manager key TF created (`saas-<svc>-db-secret`, except `keycloak-db-secret`). Note: `rds_auth` and `rds_keycloak` are conditional in TF (`count = var.auth_provider == ... ? 1 : 0`) — the non-matching ProviderConfig will be unhealthy in that env, which is expected.
 
 **Platform API** ([platform/](platform/)):
 
@@ -702,8 +702,9 @@ The chart renders a `kind: AppDatabase` CR. Crossplane reconciles into the under
 ### What this repo deliberately doesn't ship (yet)
 
 - `provider-aws` and the `ServiceBucket` / `ServiceIRSA` XRDs — these would need a new narrow-scope IRSA role added to `modules/iam/main.tf` in the TF repo. Pattern is the same as `external_secrets_irsa`.
-- ProviderConfig + ExternalSecret for the other 4 RDS instances (`auth`, `billing`, `subscription`, `keycloak`) — copy-paste of [infra/overlays/dev/crossplane/provider-sql.yaml](infra/overlays/dev/crossplane/provider-sql.yaml) with the matching Secrets Manager key.
 - `api-gateway` migration to Rollouts (still uses manual blue/green Deployments in `saas-chart/`).
+- AppDatabase claims for the other 3 services (`auth`, `billing`, `subscription`) — ProviderConfigs are already in place; each service just needs a `database:` block in its values + the AppDatabase template. Pattern is identical to `usage-service`.
+- Per-env divergence: the three `provider-sql.yaml` files under `infra/overlays/*/crossplane/` are currently identical (each env has its own AWS account, so secret names match across envs). If they stay identical long-term, fold into `infra/base/crossplane/` and reference from each overlay.
 
 ### Sync ordering
 

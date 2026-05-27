@@ -1,6 +1,9 @@
 ---
-# Crossplane provider that manages Postgres-level resources (Database, Role, Grant)
-# over a direct SQL connection. Does NOT talk to AWS APIs — no IRSA needed.
+# ═══════════════════════════════════════════════════════════════════════════
+# Crossplane provider that manages Postgres-level resources (Database, Role,
+# Grant) over a direct SQL connection. Does NOT talk to AWS APIs — no IRSA
+# needed. One Provider per cluster, one ProviderConfig per RDS instance.
+# ═══════════════════════════════════════════════════════════════════════════
 apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
@@ -12,10 +15,161 @@ spec:
   packagePullPolicy: IfNotPresent
   revisionActivationPolicy: Automatic
   revisionHistoryLimit: 1
+
+# ═══════════════════════════════════════════════════════════════════════════
+# One ExternalSecret + ProviderConfig per RDS instance.
+#
+# Secret names come from saas-services-infra modules/rds/main.tf:
+#   resource "aws_secretsmanager_secret" "db" { name = "${var.name}-secret" }
+# and main.tf passes `name = "saas-<svc>-db"` per module.
+#
+# Note: rds_auth and rds_keycloak are conditional in TF based on
+# var.auth_provider — only one of them exists per env. The non-matching
+# ProviderConfig will report unhealthy (no Secret to bind); this is expected
+# and harmless. AppDatabase claims naturally won't target a missing instance
+# because the schema's `instance` enum is validated at PR time.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ─── auth-service ────────────────────────────────────────────────────────────
 ---
-# ExternalSecret pulls the admin credentials TF wrote to Secrets Manager
-# (modules/rds/main.tf: aws_secretsmanager_secret.db) and materializes them
-# as a k8s Secret that provider-sql's ProviderConfig consumes.
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: rds-auth-admin
+  namespace: crossplane-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: rds-auth-admin
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      data:
+        data: |
+          postgresql://{{ .username }}:{{ .password }}@{{ .endpoint }}/{{ .db_name }}?sslmode=require
+        username: "{{ .username }}"
+        password: "{{ .password }}"
+        endpoint: "{{ .endpoint }}"
+        db_name: "{{ .db_name }}"
+  data:
+    - { secretKey: username, remoteRef: { key: saas-auth-db-secret, property: username } }
+    - { secretKey: password, remoteRef: { key: saas-auth-db-secret, property: password } }
+    - { secretKey: endpoint, remoteRef: { key: saas-auth-db-secret, property: endpoint } }
+    - { secretKey: db_name,  remoteRef: { key: saas-auth-db-secret, property: db_name  } }
+---
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: rds-auth
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  credentials:
+    source: PostgreSQLConnectionSecret
+    connectionSecretRef:
+      namespace: crossplane-system
+      name: rds-auth-admin
+  sslMode: require
+
+# ─── billing-service ─────────────────────────────────────────────────────────
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: rds-billing-admin
+  namespace: crossplane-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: rds-billing-admin
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      data:
+        data: |
+          postgresql://{{ .username }}:{{ .password }}@{{ .endpoint }}/{{ .db_name }}?sslmode=require
+        username: "{{ .username }}"
+        password: "{{ .password }}"
+        endpoint: "{{ .endpoint }}"
+        db_name: "{{ .db_name }}"
+  data:
+    - { secretKey: username, remoteRef: { key: saas-billing-db-secret, property: username } }
+    - { secretKey: password, remoteRef: { key: saas-billing-db-secret, property: password } }
+    - { secretKey: endpoint, remoteRef: { key: saas-billing-db-secret, property: endpoint } }
+    - { secretKey: db_name,  remoteRef: { key: saas-billing-db-secret, property: db_name  } }
+---
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: rds-billing
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  credentials:
+    source: PostgreSQLConnectionSecret
+    connectionSecretRef:
+      namespace: crossplane-system
+      name: rds-billing-admin
+  sslMode: require
+
+# ─── subscription-service ────────────────────────────────────────────────────
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: rds-subscription-admin
+  namespace: crossplane-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: rds-subscription-admin
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      data:
+        data: |
+          postgresql://{{ .username }}:{{ .password }}@{{ .endpoint }}/{{ .db_name }}?sslmode=require
+        username: "{{ .username }}"
+        password: "{{ .password }}"
+        endpoint: "{{ .endpoint }}"
+        db_name: "{{ .db_name }}"
+  data:
+    - { secretKey: username, remoteRef: { key: saas-subscription-db-secret, property: username } }
+    - { secretKey: password, remoteRef: { key: saas-subscription-db-secret, property: password } }
+    - { secretKey: endpoint, remoteRef: { key: saas-subscription-db-secret, property: endpoint } }
+    - { secretKey: db_name,  remoteRef: { key: saas-subscription-db-secret, property: db_name  } }
+---
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: rds-subscription
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  credentials:
+    source: PostgreSQLConnectionSecret
+    connectionSecretRef:
+      namespace: crossplane-system
+      name: rds-subscription-admin
+  sslMode: require
+
+# ─── usage-service ───────────────────────────────────────────────────────────
+---
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
@@ -34,8 +188,6 @@ spec:
     template:
       type: Opaque
       data:
-        # provider-sql ProviderConfig expects the full DSN as `data`.
-        # Format: postgresql://user:password@host:port/dbname?sslmode=require
         data: |
           postgresql://{{ .username }}:{{ .password }}@{{ .endpoint }}/{{ .db_name }}?sslmode=require
         username: "{{ .username }}"
@@ -43,26 +195,11 @@ spec:
         endpoint: "{{ .endpoint }}"
         db_name: "{{ .db_name }}"
   data:
-    - secretKey: username
-      remoteRef:
-        key: usage-prod-secret
-        property: username
-    - secretKey: password
-      remoteRef:
-        key: usage-prod-secret
-        property: password
-    - secretKey: endpoint
-      remoteRef:
-        key: usage-prod-secret
-        property: endpoint
-    - secretKey: db_name
-      remoteRef:
-        key: usage-prod-secret
-        property: db_name
+    - { secretKey: username, remoteRef: { key: saas-usage-db-secret, property: username } }
+    - { secretKey: password, remoteRef: { key: saas-usage-db-secret, property: password } }
+    - { secretKey: endpoint, remoteRef: { key: saas-usage-db-secret, property: endpoint } }
+    - { secretKey: db_name,  remoteRef: { key: saas-usage-db-secret, property: db_name  } }
 ---
-# ProviderConfig tells provider-sql HOW to reach rds_usage and authenticate.
-# One ProviderConfig per RDS instance; AppDatabase claims pick which one to use
-# via spec.parameters.instance ("usage" → name: rds-usage).
 apiVersion: postgresql.sql.crossplane.io/v1alpha1
 kind: ProviderConfig
 metadata:
@@ -75,4 +212,51 @@ spec:
     connectionSecretRef:
       namespace: crossplane-system
       name: rds-usage-admin
+  sslMode: require
+
+# ─── keycloak ────────────────────────────────────────────────────────────────
+# Note: TF name is "keycloak-db" (no "saas-" prefix), so secret key differs.
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: rds-keycloak-admin
+  namespace: crossplane-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: rds-keycloak-admin
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      data:
+        data: |
+          postgresql://{{ .username }}:{{ .password }}@{{ .endpoint }}/{{ .db_name }}?sslmode=require
+        username: "{{ .username }}"
+        password: "{{ .password }}"
+        endpoint: "{{ .endpoint }}"
+        db_name: "{{ .db_name }}"
+  data:
+    - { secretKey: username, remoteRef: { key: keycloak-db-secret, property: username } }
+    - { secretKey: password, remoteRef: { key: keycloak-db-secret, property: password } }
+    - { secretKey: endpoint, remoteRef: { key: keycloak-db-secret, property: endpoint } }
+    - { secretKey: db_name,  remoteRef: { key: keycloak-db-secret, property: db_name  } }
+---
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: rds-keycloak
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  credentials:
+    source: PostgreSQLConnectionSecret
+    connectionSecretRef:
+      namespace: crossplane-system
+      name: rds-keycloak-admin
   sslMode: require
