@@ -1,0 +1,27 @@
+# Root app for LOCAL minikube testing — infra layer only.
+# Apply once: kubectl apply -f root/dev-local.yaml -n argocd
+#
+# Point repoURL/targetRevision at whichever fork+branch you push the
+# `infra/overlays/dev-local` directory to, then Argo will reconcile from there.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infra-dev-local
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+    targetRevision: dev-local
+    path: infra/overlays/dev-local
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
