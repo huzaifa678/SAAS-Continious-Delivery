@@ -1,0 +1,41 @@
+# Sync-hook Job: rolls every Deployment whose ServiceAccount is bound to an
+# EKS Pod Identity association. Argo deletes the previous Job before creating
+# a new one each Sync (BeforeHookCreation), so re-running is just another Sync.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pod-identity-refresh
+  namespace: kube-system
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      serviceAccountName: pod-identity-refresh
+      restartPolicy: OnFailure
+      containers:
+        - name: kubectl
+          image: bitnami/kubectl:1.32
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              # namespace : label-selector for the deployments to restart
+              targets="
+              cert-manager:app.kubernetes.io/name=cert-manager
+              external-dns:app.kubernetes.io/name=external-dns
+              external-secrets:app.kubernetes.io/name=external-secrets
+              kube-system:app.kubernetes.io/name=aws-load-balancer-controller
+              kube-system:app.kubernetes.io/name=karpenter
+              kube-system:app=ebs-csi-controller
+              "
+              echo "$targets" | while read -r line; do
+                [ -z "$line" ] && continue
+                ns="${line%%:*}"
+                sel="${line#*:}"
+                echo ">>> rollout restart deploy -n $ns -l $sel"
+                kubectl -n "$ns" rollout restart deploy -l "$sel" || true
+              done

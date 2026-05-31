@@ -7,6 +7,8 @@ kind: Kustomization
 #     AWS Secrets Manager + real RDS endpoints; won't reconcile locally).
 #   - Crossplane operator itself stays installed so AppDatabase XRD/Composition
 #     can still be loaded for shape validation.
+#   - Excludes pod-identity-refresh (inherited from base) — EKS Pod Identity
+#     doesn't exist on minikube; the Job would have nothing to refresh.
 # Application yamls are duplicated from ../dev because kustomize forbids
 # referencing files outside the overlay directory.
 resources:
@@ -16,3 +18,18 @@ resources:
   - keda/application-keda.yaml
   - argo-rollouts/application-argo-rollouts.yaml
   - crossplane/application-crossplane.yaml
+
+# pod-identity-refresh is an EKS-only concept; strip it from this overlay.
+patches:
+  - target:
+      group: argoproj.io
+      version: v1alpha1
+      kind: Application
+      name: pod-identity-refresh
+    patch: |
+      $patch: delete
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: pod-identity-refresh
+        namespace: argocd
