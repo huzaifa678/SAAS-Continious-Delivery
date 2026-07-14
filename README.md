@@ -152,6 +152,21 @@ saas-continious-delivery/
 │   │   └── appdatabase.yaml             # CompositeResourceDefinition: kind: AppDatabase
 │   └── compositions/
 │       └── appdatabase-postgres.yaml    # Postgres-backed Composition (Database + Role + Grant)
+├── appsets/                            # ArgoCD ApplicationSets (generate per-env Applications)
+│   ├── microservices.yaml               # Helm — 4 services × envs (cluster generator)
+│   ├── api-gateway.yaml                 # Helm + Kustomize post-render — saas-chart
+│   ├── infra.yaml                       # Kustomize — infra/overlays/<env>
+│   ├── istio.yaml                       # Upstream Helm — istio base + istiod
+│   └── platform.yaml                    # Crossplane XRDs + Compositions
+├── bootstrap/
+│   └── appsets.yaml                     # App-of-ApplicationSets (manual entrypoint; Terraform applies the same)
+├── policy/                             # Policy as Code (OPA/Rego, enforced by conftest)
+│   ├── README.md
+│   └── kubernetes/
+│       ├── security.rego                # deny — privileged, host ns, caps, root
+│       ├── governance.rego              # warn — images, resources, hardening, probes
+│       ├── lib.rego                     # Rollout-aware pod helpers
+│       └── policy_test.rego             # conftest verify unit tests
 ├── schemas/                            # CUE schemas for values validation
 │   └── service/
 │       ├── values.cue                   # Shared #Values schema (4 service charts)
@@ -161,21 +176,20 @@ saas-continious-delivery/
 │   └── module.cue                       # CUE module declaration
 ├── scripts/
 │   ├── gen-values-schema.sh             # CUE → values.schema.json generator
-│   └── vet-values.sh                    # Strict per-env vet (base + env values)
+│   ├── vet-values.sh                    # Strict per-env vet (base + env values)
+│   └── policy-check.sh                  # Render helm+kustomize, run conftest/OPA
 ├── Makefile                            # schema / vet / validate / check-schema targets
-├── root/                               # Top-level environment values
-│   ├── dev.yaml
-│   ├── prod.yaml
-│   └── staging.yaml
+├── root/                               # Local-only bootstrap
+│   └── dev-local.yaml                   # minikube infra layer (dev-local branch)
 ├── CHART-PUSH.md                       # Guide for pushing charts to ECR
 ```
 
 **Key Directories:**
 
-- **`apps/`**: Root environment manifests and values for dev, staging, and prod
+- **`appsets/`**: ArgoCD ApplicationSets — the sole delivery model, bootstrapped by Terraform
 - **`charts/`**: Individual Helm charts for each microservice
 - **`infra/`**: Shared infrastructure base and overlay manifests
-- **`root/`**: Top-level environment-specific deployment values
+- **`root/`**: Local-only minikube bootstrap (`dev-local.yaml`)
 - **`saas-chart/`**: Orchestration Helm chart for API Gateway, Istio/Gateway configuration, and shared infra
 
 ## Architecture Overview
@@ -307,52 +321,57 @@ helm test saas --namespace saas-dev
 
 ## ArgoCD GitOps Setup
 
-This repo uses an **App-of-Apps** pattern. A root ArgoCD Application per environment (`root/<env>.yaml`) bootstraps two child Applications — an infra layer (kustomize overlay under `infra/overlays/<env>`) and an apps layer (microservice Applications from `apps/<env>.yaml`).
+Delivery is driven by **ApplicationSets** — a single model, bootstrapped by
+Terraform. The static per-env app-of-apps (`apps/`, `root/<env>.yaml`) has been
+retired; only [`root/dev-local.yaml`](root/dev-local.yaml) remains, for local
+minikube testing off the `dev-local` branch.
 
-### Deployment Flow
+### How it's wired
 
-1. **Root Application** (`root/<env>.yaml`) — Two Applications per env: `infra-<env>` (sync-wave 0) and `apps-<env>` (sync-wave 1)
-2. **Child Applications** (`apps/<env>.yaml`) — Each references a Helm chart:
-   - `auth-service` ArgoCD Application → `charts/auth-service/` Helm chart
-   - `billing-service` ArgoCD Application → `charts/billing-service/` Helm chart
-   - `subscription-service` ArgoCD Application → `charts/subscription-service/` Helm chart
-   - `usage-service` ArgoCD Application → `charts/usage-service/` Helm chart
-   - Infrastructure apps (Keycloak, Airflow, Observability, etc.)
-3. **Infrastructure Chart** (`saas-chart/`) — Deployed for API Gateway, Istio, and networking
+Terraform (`saas-services-infra`, [`argo-saas.yaml.tpl`](https://github.com/huzaifa678/saas-services-infra)) installs ArgoCD and then applies two documents:
 
-### Bootstrap Dev Environment
+1. A **cluster secret** for `in-cluster`, labelled `env: <env>` (the `env` comes from `local.env`).
+2. The **app-of-ApplicationSets** ([`bootstrap/appsets.yaml`](bootstrap/appsets.yaml) equivalent) pointing at [`appsets/`](appsets/).
+
+Each ApplicationSet uses a **cluster generator**: it fans out over every
+destination cluster secret carrying an `env: dev|staging|prod` label, so a
+cluster only ever receives its own environment's Applications (no collision on
+the shared `saas-apps` namespace). Adding an environment is a *cluster
+registration* (one labelled secret), not a per-env YAML copy-paste. For a
+manual/local cluster you can still `kubectl apply -f bootstrap/appsets.yaml`
+after labelling the `in-cluster` secret yourself.
+
+**Helm and Kustomize both remain first-class** — ApplicationSets change *how
+Applications are generated*, not *how manifests are rendered*:
+
+| ApplicationSet | Renderer | Contribution |
+|---|---|---|
+| [`microservices`](appsets/microservices.yaml) | **Helm** | OCI chart + `$values` env file per service (matrix: cluster × service) |
+| [`api-gateway`](appsets/api-gateway.yaml) | **Helm + Kustomize post-render** | saas-chart rendered by Helm, then patched by `post-renderer/saas-chart/overlays/<env>` |
+| [`infra`](appsets/infra.yaml) | **Kustomize** | `infra/overlays/<env>` (Airflow, Keycloak, addon Applications) |
+| [`istio`](appsets/istio.yaml) | Upstream Helm | istio base + istiod |
+| [`platform`](appsets/platform.yaml) | Raw manifests | Crossplane XRDs + Compositions (`prune: false`) |
+
+**Image delivery** is driven by [Argo CD Image Updater](docs/IMAGE-UPDATER.md):
+**dev only** auto-tracks new immutable `sha-*` tags in ECR via git write-back
+(replacing the CI bot commit); staging and prod are promoted by an explicit,
+gated PR. The image-updater annotations are applied through each ApplicationSet's
+`spec.templatePatch`, gated on `eq .metadata.labels.env "dev"`, so the annotation
+block only ever lands on the dev-labelled cluster. See
+[`docs/IMAGE-UPDATER.md`](docs/IMAGE-UPDATER.md).
+
+### Sync waves
+
+Applications sync in order regardless of environment:
+
+- `-2` app-of-ApplicationSets → `-1` istio → `0` infra + platform → `1` api-gateway → `2` microservices.
+
+### Local (minikube) bootstrap
 
 ```bash
-# Apply the root ArgoCD application
-kubectl apply -f root/dev.yaml -n argocd
+# infra layer only, off the dev-local branch
+kubectl apply -f root/dev-local.yaml -n argocd
 ```
-
-ArgoCD will then automatically sync all child applications:
-- The `auth-service`, `billing-service`, `subscription-service`, `usage-service` microservices
-- The `saas-chart` infrastructure (API Gateway, Istio Gateway, mTLS config)
-- Keycloak (identity provider)
-- Airflow (data pipeline orchestration)
-- Grafana stack (Prometheus + Loki)
-
-### Bootstrap Staging Environment
-
-```bash
-kubectl apply -f root/staging.yaml -n argocd
-```
-
-Syncs microservices + ELK stack (Elasticsearch, Kibana) for observability.
-
-### Bootstrap Production Environment
-
-```bash
-kubectl apply -f root/prod.yaml -n argocd
-```
-
-Syncs microservices + infrastructure with:
-- External DNS (Route53 integration)
-- Cert-Manager (automated TLS certificates)
-- External Secrets (secrets management)
-- Karpenter (auto-scaling node provisioning)
 - Higher replicas and resource limits
 
 ### Sync Manually
@@ -492,7 +511,7 @@ They sync from the upstream `kedacore/keda` Helm chart into namespace `keda` at 
 
 ### Per-service ScaledObject
 
-Each service chart ships a `templates/scaledobject.yaml` gated by `keda.enabled`. It targets the **active blue/green slot** (`<svc>-<activeSlot>`) so KEDA never fights the preview Deployment pinned to 0 replicas. The existing `ignoreDifferences` on `/spec/replicas` in `apps/<env>.yaml` prevents ArgoCD drift from KEDA-driven replica counts.
+Each service chart ships a `templates/scaledobject.yaml` gated by `keda.enabled`. It targets the **active blue/green slot** (`<svc>-<activeSlot>`) so KEDA never fights the preview Deployment pinned to 0 replicas. The `ignoreDifferences` on `/spec/replicas` in the `microservices` ApplicationSet prevents ArgoCD drift from KEDA-driven replica counts.
 
 | Env | Enabled | Replicas | Triggers |
 |---|---|---|---|
@@ -599,7 +618,7 @@ KEDA scales the *active* ReplicaSet (whichever Rollouts marks as stable); during
 
 ### ArgoCD drift handling
 
-`apps/<env>.yaml` ignores fields Rollouts mutates at runtime:
+The `microservices` ApplicationSet ignores fields Rollouts mutates at runtime:
 
 ```yaml
 ignoreDifferences:
@@ -755,6 +774,44 @@ make check-schema  # CI gate: fail if values.schema.json drifted from CUE
 1. Edit `schemas/service/values.cue`.
 2. `make schema` — regenerates `charts/*/values.schema.json`.
 3. Commit both the CUE change and the generated schema files.
+
+## Policy as Code (OPA/Rego + conftest)
+
+Values validation (above) gates the *inputs* to Helm; **Policy as Code** gates
+the *rendered Kubernetes objects* that come out of Helm **and** Kustomize. See
+[`policy/README.md`](policy/README.md) for the full write-up.
+
+```
+values.yaml ──(CUE / values.schema.json)──▶ Helm ─┐
+                                                   ├─▶ manifests ──(conftest / OPA)──▶ Argo sync
+infra overlays ────────────────────────▶ Kustomize ┘
+```
+
+[`scripts/policy-check.sh`](scripts/policy-check.sh) renders all three delivery
+paths exactly as Argo CD does — Helm (microservice charts), Helm + Kustomize
+post-render (api-gateway), and Kustomize (infra overlays) — and evaluates each
+with [conftest](https://www.conftest.dev/) against the Rego set in
+[`policy/kubernetes/`](policy/kubernetes/):
+
+- **`security.rego`** — `deny` (blocking): privileged containers, host namespaces,
+  `hostPath`, `runAsUser: 0`, dangerous capabilities. The rules are Rollout-aware,
+  so they cover the `argoproj.io/Rollout` workloads (not just `Deployment`).
+- **`governance.rego`** — `warn` (advisory): `:latest`/untagged images, un-approved
+  registries, missing resources, `runAsNonRoot`/`readOnlyRootFilesystem`
+  hardening, missing probes.
+
+```bash
+make policy-test   # conftest verify — unit-test the Rego rules
+make policy        # render + conftest across every svc/env
+```
+
+CI runs the same script in
+[`.github/workflows/policy-check.yml`](.github/workflows/policy-check.yml) on
+every PR touching `charts/`, `saas-chart/`, `infra/`, `post-renderer/`, or
+`policy/`. On the infra (Terraform) side, the companion
+[`saas-services-infra`](https://github.com/huzaifa678/saas-services-infra) repo
+enforces the same philosophy — tflint + Checkov + a Rego set wired into Atlantis'
+native `policy_check` stage.
 
 ## License
 
