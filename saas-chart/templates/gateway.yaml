@@ -1,3 +1,4 @@
+---
 {{- if and .Values.gateway.enabled (eq .Values.environment "post-test") }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway

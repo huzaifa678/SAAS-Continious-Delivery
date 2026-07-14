@@ -1,3 +1,4 @@
+---
 {{- $svc := "api-gateway" }}
 {{- $bg := .Values.apiGateway.blueGreen }}
 {{- range list "blue" "green" }}
@@ -47,6 +48,10 @@ spec:
           value: {{ $.Values.apiGateway.port | quote }}
         - name: GATEWAY_KEYCLOAK_JWKSURL
           value: {{ $.Values.apiGateway.keycloakJWKSURL | quote }}
+        # Gates the /swagger endpoint (main.go): only "dev" exposes it. Secure
+        # default is "prod" (values.yaml); values-dev.yaml overrides to "dev".
+        - name: GATEWAY_APP_ENV
+          value: {{ $.Values.apiGateway.env | default "prod" | quote }}
         livenessProbe:
           httpGet:
             path: {{ $.Values.apiGateway.livenessProbe.path }}

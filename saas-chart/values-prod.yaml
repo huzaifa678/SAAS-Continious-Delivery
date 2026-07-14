@@ -1,3 +1,4 @@
+---
 global:
   environment: prod
 
@@ -6,7 +7,7 @@ istio:
   revision: ""
 
 image:
-  apiGateway: ""  
+  apiGateway: ""
 
 apiGateway:
   replicas: 3

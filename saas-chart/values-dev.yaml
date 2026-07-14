@@ -1,3 +1,4 @@
+---
 global:
   environment: dev
 
@@ -5,10 +6,11 @@ istio:
   enabled: false
 
 image:
-  apiGateway: ""  
+  apiGateway: ""
 
 apiGateway:
   replicas: 1
+  env: dev            # dev only: exposes /swagger (see main.go)
   circuitBreaking:
     maxConnections: 100
     http1MaxPendingRequests: 1000
@@ -26,7 +28,7 @@ opentelemetry-collector:
   image:
     repository: otel/opentelemetry-collector
     tag: latest
-    
+
   config:
     exporters:
       otlp/tempo:

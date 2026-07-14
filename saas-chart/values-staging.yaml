@@ -1,3 +1,4 @@
+---
 global:
   environment: staging
 
@@ -6,7 +7,7 @@ istio:
   revision: ""
 
 image:
-  apiGateway: ""  
+  apiGateway: ""
 
 apiGateway:
   replicas: 2
@@ -27,7 +28,7 @@ opentelemetry-collector:
   image:
     repository: otel/opentelemetry-collector
     tag: latest
-    
+
   config:
     exporters:
       otlp/elastic:
