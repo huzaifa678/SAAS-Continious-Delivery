@@ -1,3 +1,4 @@
+---
 # Argo CD Application that owns a one-shot "restart everything using Pod Identity"
 # Job. Used after IAM trust-policy changes (e.g. IRSA -> Pod Identity migration) so
 # running pods drop their cached IRSA credentials and pick up the new auth path.

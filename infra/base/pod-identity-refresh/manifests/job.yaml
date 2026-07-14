@@ -1,3 +1,4 @@
+---
 # Sync-hook Job: rolls every Deployment whose ServiceAccount is bound to an
 # EKS Pod Identity association. Argo deletes the previous Job before creating
 # a new one each Sync (BeforeHookCreation), so re-running is just another Sync.

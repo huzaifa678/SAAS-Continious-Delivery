@@ -1,3 +1,4 @@
+---
 # Karpenter NodePool and EC2NodeClass — Git-managed.
 # The karpenter Helm Application itself is deployed by Terraform (argo-karpenter.yaml.tpl)
 # because it requires IRSA role ARN and cluster name injected at apply time.
