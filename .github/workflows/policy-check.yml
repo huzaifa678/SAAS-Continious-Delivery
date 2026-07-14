@@ -1,0 +1,53 @@
+name: policy-check
+
+# Policy as Code gate: render every chart + overlay the way Argo CD does, then
+# evaluate the resulting Kubernetes manifests with conftest/OPA. Runs alongside
+# validate-values.yml (CUE), which gates the values that feed Helm.
+
+on:
+  pull_request:
+    paths:
+      - 'charts/**'
+      - 'saas-chart/**'
+      - 'infra/**'
+      - 'post-renderer/**'
+      - 'policy/**'
+      - 'scripts/policy-check.sh'
+      - '.github/workflows/policy-check.yml'
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  CONFTEST_VERSION: 0.56.0
+
+jobs:
+  conftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.15.0
+
+      - name: Install kustomize
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -sSfL https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh \
+            | bash -s 5.8.1 "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install conftest
+        run: |
+          curl -sSfL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin conftest
+
+      - name: conftest verify (policy unit tests)
+        run: conftest verify -p policy/kubernetes
+
+      - name: policy-check (render helm + kustomize, then conftest)
+        run: ./scripts/policy-check.sh

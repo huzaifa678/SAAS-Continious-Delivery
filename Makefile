@@ -1,4 +1,4 @@
-.PHONY: help schema vet validate check-schema
+.PHONY: help schema vet validate check-schema policy policy-test
 
 help:
 	@echo "Targets:"
@@ -6,6 +6,14 @@ help:
 	@echo "  vet           Strictly validate merged values (base+env) per service via cue vet."
 	@echo "  validate      schema + vet + helm template (full pre-commit check)."
 	@echo "  check-schema  Fail if generated values.schema.json is out of sync with CUE (CI gate)."
+	@echo "  policy-test   conftest verify — unit-test the Rego policy set (hermetic)."
+	@echo "  policy        Render helm + kustomize (all svc/env) and run conftest/OPA."
+
+policy-test:
+	@conftest verify -p policy/kubernetes
+
+policy:
+	@scripts/policy-check.sh
 
 schema:
 	@scripts/gen-values-schema.sh
