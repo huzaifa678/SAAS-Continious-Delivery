@@ -1,0 +1,80 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: microservices
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - matrix:
+        generators:
+          # Every registered cluster carrying an `env` label.
+          - clusters:
+              selector:
+                matchExpressions:
+                  - { key: env, operator: Exists }
+          # The service catalogue (env-independent).
+          - list:
+              elements:
+                - service: auth-service
+                - service: billing-service
+                - service: subscription-service
+                - service: usage-service
+  template:
+    metadata:
+      name: '{{.service}}-{{.metadata.labels.env}}'
+      namespace: argocd
+      annotations:
+        argocd.argoproj.io/sync-wave: "2"
+    spec:
+      project: default
+      sources:
+        - repoURL: oci://123456789.dkr.ecr.us-east-1.amazonaws.com/helm
+          chart: '{{.service}}'
+          targetRevision: 0.1.0
+          helm:
+            releaseName: '{{.service}}'
+            valueFiles:
+              - '$values/charts/{{.service}}/values.yaml'
+              - '$values/charts/{{.service}}/values-{{.metadata.labels.env}}.yaml'
+        - repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: '{{.server}}'
+        namespace: saas-apps
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+      ignoreDifferences:
+        - group: argoproj.io
+          kind: Rollout
+          jsonPointers:
+            - /spec/replicas
+        - group: networking.istio.io
+          kind: VirtualService
+          jsonPointers:
+            - /spec/http
+  # Image Updater is dev-only: staging/prod are promoted by explicit gated PRs.
+  # This patch is merged onto each generated Application AFTER the template renders,
+  # so the entire annotation block only exists on the dev-labelled cluster.
+  templatePatch: |
+    {{- if eq .metadata.labels.env "dev" }}
+    metadata:
+      annotations:
+        argocd-image-updater.argoproj.io/image-list: '{{.service}}=123456789.dkr.ecr.us-east-1.amazonaws.com/{{.service}}'
+        argocd-image-updater.argoproj.io/{{.service}}.update-strategy: newest-build
+        argocd-image-updater.argoproj.io/{{.service}}.allow-tags: 'regexp:^sha-[0-9a-f]{7,40}$'
+        argocd-image-updater.argoproj.io/{{.service}}.helm.image-name: image.repository
+        argocd-image-updater.argoproj.io/{{.service}}.helm.image-tag: image.tag
+        argocd-image-updater.argoproj.io/write-back-method: git:secret:argocd/image-updater-git-creds
+        argocd-image-updater.argoproj.io/write-back-target: 'helmvalues:charts/{{.service}}/values-dev.yaml'
+        argocd-image-updater.argoproj.io/git-branch: main
+    {{- end }}
