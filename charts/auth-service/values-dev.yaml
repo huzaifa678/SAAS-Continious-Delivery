@@ -1,3 +1,4 @@
+---
 replicas: 1
 
 image:
@@ -19,3 +20,8 @@ rollout:
 
 keda:
   enabled: false
+
+# Dev only: expose GraphQL introspection + Apollo landing page (see apollo.server.js).
+env:
+  - name: APP_ENV
+    value: dev

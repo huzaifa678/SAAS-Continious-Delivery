@@ -1,13 +1,13 @@
+---
 replicas: 3
 
 image:
-  repository: ""  
+  repository: ""
   tag: "prod"
 
 istio:
   enabled: true
   revision: ""
-
 
 circuitBreaking:
   maxConnections: 100

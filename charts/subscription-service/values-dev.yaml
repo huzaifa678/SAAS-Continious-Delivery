@@ -1,7 +1,8 @@
+---
 replicas: 1
 
 image:
-  repository: ""  
+  repository: ""
   tag: "dev"
 
 istio:
@@ -30,3 +31,8 @@ rollout:
 
 keda:
   enabled: false
+
+# Dev only: expose GraphQL introspection (see app.module.ts).
+env:
+  - name: APP_ENV
+    value: dev

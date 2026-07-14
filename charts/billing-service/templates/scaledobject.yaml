@@ -1,3 +1,4 @@
+---
 {{- if .Values.keda.enabled }}
 {{- $svc := "billing-service" }}
 apiVersion: keda.sh/v1alpha1

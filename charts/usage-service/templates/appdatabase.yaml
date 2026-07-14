@@ -1,3 +1,4 @@
+---
 {{- if .Values.database.enabled }}
 {{- $svc := "usage-service" }}
 apiVersion: platform.saas.example/v1alpha1

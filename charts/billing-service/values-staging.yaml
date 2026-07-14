@@ -1,7 +1,8 @@
+---
 replicas: 2
 
 image:
-  repository: ""  
+  repository: ""
   tag: "staging"
 
 istio:

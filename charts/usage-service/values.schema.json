@@ -66,6 +66,23 @@
       },
       "additionalProperties": false
     },
+    "EnvVar": {
+      "type": "object",
+      "required": [
+        "name",
+        "value"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
     "Image": {
       "type": "object",
       "required": [
@@ -443,6 +460,13 @@
         },
         "database": {
           "$ref": "#/$defs/Database"
+        },
+        "env": {
+          "description": "Optional plain env vars injected into the container. Used e.g. to enable\nOpenAPI/Swagger or GraphQL introspection in dev only (APP_ENV / SPRINGDOC_ENABLED).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EnvVar"
+          }
         }
       },
       "additionalProperties": false

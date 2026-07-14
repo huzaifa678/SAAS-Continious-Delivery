@@ -1,3 +1,4 @@
+---
 {{- if and .Values.rollout.analysis.enabled (eq (.Values.rollout.analysis.provider | default "prometheus") "prometheus") }}
 {{- $svc := "billing-service" }}
 {{- $a := .Values.rollout.analysis }}

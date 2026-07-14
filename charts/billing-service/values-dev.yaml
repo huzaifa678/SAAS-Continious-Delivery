@@ -1,7 +1,8 @@
+---
 replicas: 1
 
 image:
-  repository: "" 
+  repository: ""
   tag: "dev"
 
 istio:
@@ -30,3 +31,8 @@ rollout:
 
 keda:
   enabled: false
+
+# Dev only: enable springdoc OpenAPI/Swagger UI (see application.properties).
+env:
+  - name: SPRINGDOC_ENABLED
+    value: "true"
