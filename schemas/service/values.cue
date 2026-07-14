@@ -19,6 +19,15 @@ package service
 	// Optional: when present, the service requests a Postgres database via Crossplane.
 	// Only services that own data need this block (e.g. usage-service).
 	database?: #Database
+
+	// Optional plain env vars injected into the container. Used e.g. to enable
+	// OpenAPI/Swagger or GraphQL introspection in dev only (APP_ENV / SPRINGDOC_ENABLED).
+	env?: [...#EnvVar]
+}
+
+#EnvVar: {
+	name!:  string & =~"^[A-Z_][A-Z0-9_]*$"
+	value!: string
 }
 
 #Database: {
