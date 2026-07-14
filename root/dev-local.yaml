@@ -1,3 +1,4 @@
+---
 # Root app for LOCAL minikube testing — infra layer only.
 # Apply once: kubectl apply -f root/dev-local.yaml -n argocd
 #
