@@ -738,6 +738,34 @@ Then `platform-<env>` (sync-wave `0` at the app-of-apps level) syncs XRDs + Comp
 
 Then `apps-<env>` (sync-wave `2`) syncs the service charts, whose `AppDatabase` claims are now valid.
 
+## Usage ETL execution
+
+The usage-service ETL (`ingest → aggregate → embed`, the pipes-and-filters code
+in the usage-service repo) can run two ways. **They are mutually exclusive** —
+both consume `billing.usage-charge.created` and write the same tables / pgvector,
+so running both double-processes and corrupts aggregates. Pick exactly one.
+
+| | Option A — **ACTIVE** | Option B — alternative (not wired) |
+|---|---|---|
+| Where | [`infra/base/airflow/`](infra/base/airflow/) | [`infra/base/usage-etl-argo-keda/`](infra/base/usage-etl-argo-keda/) |
+| Orchestration | Airflow, `KubernetesExecutor` (each task = a pod; no Celery/Redis) | Argo Workflows + KEDA |
+| ingest | Airflow DAG task | Deployment + KEDA `ScaledObject` (Kafka lag, scale-to-zero) |
+| aggregate → embed | Airflow DAG tasks | Argo Workflows `CronWorkflow` (ordered DAG) |
+| ordered deps | yes (DAG) | yes (Argo DAG for the batch stages) |
+
+Option A is the default: `infra/base/kustomization.yaml` references
+`airflow/airflow.yaml` + `airflow/appdatabase.yaml`, and **not**
+`usage-etl-argo-keda/`. To switch to B, follow the full guide in
+[`ARGOWORKFLOWS.md`](ARGOWORKFLOWS.md). The two are mutually exclusive — both
+consume the same topic and write the same tables.
+
+Airflow's metadata DB is a dedicated RDS instance managed via Crossplane
+(`AppDatabase` claim → `airflow-db` Secret → injected as
+`AIRFLOW__DATABASE__SQL_ALCHEMY_CONN`). The RDS instance/secret names come from
+the Terraform **GitOps contract** (published to SSM by `saas-services-infra`,
+see its `docs/gitops-contract.md`); `scripts/render_gitops.py` fetches it (via
+the `render-gitops` workflow) and renders `crossplane/provider-sql.yaml`.
+
 ## Values Validation with CUE
 
 Helm chart values are validated by two complementary layers, both authored from a **single CUE source of truth** at `schemas/service/`:
