@@ -1,0 +1,21 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════
+# ALTERNATIVE usage-ETL execution (Option B: Argo Workflows + KEDA) — NOT wired
+# in by default.
+#
+# Mutually exclusive with the Airflow orchestrator in infra/base/airflow/.
+# Enabling BOTH double-consumes the Kafka topic and double-writes usage_events /
+# usage_aggregates / pgvector. Pick exactly one.
+#
+#   • ingest              → KEDA ScaledObject (streaming Kafka consumer)
+#   • aggregate → embed   → Argo Workflows CronWorkflow (ordered DAG)
+#
+# Wiring guide: /ARGOWORKFLOWS.md
+# ═══════════════════════════════════════════════════════════════════════════
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - argo-workflows-app.yaml
+  - ingest.yaml
+  - workflow.yaml

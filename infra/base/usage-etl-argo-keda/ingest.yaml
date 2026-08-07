@@ -1,0 +1,55 @@
+---
+# ALTERNATIVE (Option B) — mutually exclusive with the Airflow app.
+# Ingest as a long-running Kafka consumer, scaled to zero by KEDA on consumer
+# lag. Runs the same pipes-and-filters code as the Airflow DAG (etl.ingest).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: usage-ingest
+  namespace: usage-etl
+  labels:
+    app: usage-ingest
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: usage-ingest
+  template:
+    metadata:
+      labels:
+        app: usage-ingest
+    spec:
+      containers:
+        - name: ingest
+          # Overlay / ArgoCD Image Updater sets the real ECR tag.
+          image: usage-service:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - "while true; do python -c 'from etl.ingest import consume_kafka_batch; consume_kafka_batch()'; sleep 5; done"
+          envFrom:
+            - secretRef:
+                name: usage-etl-env
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "500m", memory: "512Mi" }
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: usage-ingest
+  namespace: usage-etl
+spec:
+  scaleTargetRef:
+    name: usage-ingest
+  minReplicaCount: 0
+  maxReplicaCount: 5
+  cooldownPeriod: 120
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: BOOTSTRAP_BROKERS   # from gitops contract (kafka.bootstrap_brokers)
+        consumerGroup: usage-service
+        topic: billing.usage-charge.created
+        lagThreshold: "50"
+        offsetResetPolicy: latest
+      # MSK is SASL/IAM — reference a TriggerAuthentication here in a real deploy.

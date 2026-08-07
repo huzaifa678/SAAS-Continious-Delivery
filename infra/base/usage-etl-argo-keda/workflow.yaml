@@ -1,0 +1,86 @@
+---
+# ALTERNATIVE (Option B) — mutually exclusive with the Airflow app.
+# Ordered aggregate -> embed batch DAG on a schedule, via Argo Workflows.
+# (Ingest is the streaming KEDA consumer in ingest.yaml.) Each step runs the
+# same pipes-and-filters code from the usage-service image.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: usage-etl-workflow
+  namespace: usage-etl
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: usage-etl-workflow
+  namespace: usage-etl
+rules:
+  - apiGroups: [""]
+    resources: [pods, pods/log]
+    verbs: [get, list, watch, create, patch, delete]
+  - apiGroups: [argoproj.io]
+    resources: [workflowtaskresults]
+    verbs: [create, patch, get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: usage-etl-workflow
+  namespace: usage-etl
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: usage-etl-workflow
+subjects:
+  - kind: ServiceAccount
+    name: usage-etl-workflow
+    namespace: usage-etl
+---
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: usage-etl
+  namespace: usage-etl
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  workflowSpec:
+    entrypoint: pipeline
+    serviceAccountName: usage-etl-workflow
+    ttlStrategy:
+      secondsAfterCompletion: 3600
+    templates:
+      - name: pipeline
+        dag:
+          tasks:
+            - name: aggregate
+              template: run
+              arguments:
+                parameters:
+                  - name: cmd
+                    value: "from etl.aggregate import aggregate_usage_events; aggregate_usage_events()"
+            - name: embed
+              template: run
+              dependencies: [aggregate]
+              arguments:
+                parameters:
+                  - name: cmd
+                    value: "from etl.embed import process_embeddings; process_embeddings()"
+      - name: run
+        inputs:
+          parameters:
+            - name: cmd
+        retryStrategy:
+          limit: "2"
+          retryPolicy: OnError
+        container:
+          image: usage-service:latest
+          command: ["python", "-c"]
+          args: ["{{inputs.parameters.cmd}}"]
+          envFrom:
+            - secretRef:
+                name: usage-etl-env
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "1", memory: "1Gi" }

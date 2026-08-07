@@ -1,0 +1,28 @@
+---
+# ALTERNATIVE (Option B) — installs the Argo Workflows controller.
+# Only needed when Option B is active. Argo Workflows is intentionally NOT part
+# of the default platform (Option A / Airflow needs no workflow engine).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-workflows
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    chart: argo-workflows
+    targetRevision: "*"
+    helm:
+      releaseName: argo-workflows
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
