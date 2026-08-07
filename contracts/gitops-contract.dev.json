@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "databases": {
+    "subscription": { "instance": "subscription", "endpoint": "saas-subscription-db.xxxx.us-east-1.rds.amazonaws.com:5432", "db_name": "subscription_db", "username": "subscription_user", "secret_name": "saas-subscription-db-secret" },
+    "billing":      { "instance": "billing",      "endpoint": "saas-billing-db.xxxx.us-east-1.rds.amazonaws.com:5432",      "db_name": "billing_db",      "username": "billing_user",      "secret_name": "saas-billing-db-secret" },
+    "usage":        { "instance": "usage",        "endpoint": "saas-usage-db.xxxx.us-east-1.rds.amazonaws.com:5432",        "db_name": "usage_db",        "username": "usage_user",        "secret_name": "saas-usage-db-secret" },
+    "keycloak":     { "instance": "keycloak",     "endpoint": "keycloak-db.xxxx.us-east-1.rds.amazonaws.com:5432",          "db_name": "keycloak_db",     "username": "keycloak_user",     "secret_name": "keycloak-db-secret" },
+    "airflow":      { "instance": "airflow",      "endpoint": "saas-airflow-db.xxxx.us-east-1.rds.amazonaws.com:5432",      "db_name": "airflow_db",      "username": "airflow_user",      "secret_name": "saas-airflow-db-secret" }
+  },
+  "redis": { "endpoint": "saas-redis.xxxx.cache.amazonaws.com", "port": 6379, "auth_secret_arn": "arn:aws:secretsmanager:us-east-1:000000000000:secret:saas-redis-auth" },
+  "kafka": { "bootstrap_brokers": "b-1.msk.xxxx:9098,b-2.msk.xxxx:9098" }
+}
