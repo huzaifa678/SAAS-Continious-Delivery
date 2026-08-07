@@ -4,8 +4,7 @@ kind: Kustomization
 
 resources:
   - airflow/airflow.yaml
-  - airflow/deployment.yaml
-  - airflow/service.yaml
+  - airflow/appdatabase.yaml
   - keycloak/keycloak-app.yaml
   - keycloak/deployment.yaml
   - keycloak/service.yaml

@@ -1,0 +1,17 @@
+---
+apiVersion: platform.saas.example/v1alpha1
+kind: AppDatabase
+metadata:
+  name: airflow
+  namespace: airflow
+  labels:
+    app: airflow
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  parameters:
+    databaseName: airflow
+    owner: airflow
+    instance: airflow
+  writeConnectionSecretToRef:
+    name: airflow-db
