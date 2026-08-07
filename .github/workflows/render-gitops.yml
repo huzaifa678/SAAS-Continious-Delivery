@@ -1,0 +1,57 @@
+name: render-gitops
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "dev"
+        type: choice
+        options: [dev, test, prod]
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Fetch GitOps contract from SSM
+        run: |
+          mkdir -p contracts
+          aws ssm get-parameter \
+            --name "/saas/${{ inputs.environment }}/gitops-contract" \
+            --with-decryption --query Parameter.Value --output text \
+            > "contracts/gitops-contract.${{ inputs.environment }}.json"
+
+      - name: Render manifests
+        run: |
+          python3 scripts/render_gitops.py \
+            --contract "contracts/gitops-contract.${{ inputs.environment }}.json" \
+            --out "infra/overlays/${{ inputs.environment }}/crossplane/provider-sql.yaml"
+
+      - name: Commit rendered manifests
+        run: |
+          git config user.name "gitops-renderer[bot]"
+          git config user.email "gitops-renderer@users.noreply.github.com"
+          git add "contracts/gitops-contract.${{ inputs.environment }}.json" \
+            "infra/overlays/${{ inputs.environment }}/crossplane/provider-sql.yaml"
+          if git diff --cached --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "render provider-sql for ${{ inputs.environment }} from gitops contract"
+            git push
+          fi
