@@ -15,23 +15,30 @@ infra overlays ─────────────────────�
 ## Why render first, then test
 
 The four microservices render as **`argoproj.io/Rollout`** objects (not
-`Deployment`s), and the api-gateway is produced by **Helm + a Kustomize
-post-renderer**. A policy set that inspected raw templates, or only understood
-`Deployment`, would miss every workload. So [`scripts/policy-check.sh`](../scripts/policy-check.sh)
-renders all three paths exactly as Argo CD does and pipes the result through
-conftest:
+`Deployment`s), and the api-gateway plus every cluster addon are produced by
+**Helm + a Kustomize post-renderer**. A policy set that inspected raw templates,
+or only understood `Deployment`, would miss every workload. So
+[`scripts/policy-check.sh`](../scripts/policy-check.sh) renders all paths exactly
+as Argo CD does and pipes the result through conftest:
 
 1. **Helm** — the four microservice charts (`charts/<svc>`, all envs).
 2. **Helm + Kustomize post-render** — `saas-chart`/api-gateway, applying
    `post-renderer/saas-chart/overlays/<env>` the same way the Argo `Application`
    does (helm output injected as a Kustomize resource, then the env overlay
    patched on top).
-3. **Kustomize** — the infra overlays (`infra/overlays/<env>`: Airflow, Keycloak,
-   addon `Application`s).
+3. **Helm + Kustomize post-render — every `gitops/**` addon.** Each flattened
+   addon (`gitops/infra/<addon>`, `gitops/observability/<stack>/<comp>`) is a
+   local umbrella chart rendered per env, then post-rendered by
+   `post-renderer/<same path>/overlays/<env>` (which also applies the genuine
+   per-env patches — resource tiers, prod HA replicas, LB scheme).
+4. **Kustomize (raw)** — the `infra/overlays/<env>` platform manifests
+   (crossplane `provider-sql`, `pod-identity-refresh`).
 
 This is also *why* Helm, the post-renderer, and Kustomize all remain first-class
 after the move to ApplicationSets — the policy gate covers, and the render paths
-still exercise, every one of them.
+still exercise, every one of them. Note the security `deny` for host access is
+waived per-workload via the `policy.saas.io/allow-host-access` annotation (added
+by the post-renderer) for sanctioned node agents — see `security.rego`.
 
 ## The policy set
 

@@ -33,10 +33,13 @@ Kafka (billing.usage-charge.created)
 
 ## Prerequisites
 
-- **KEDA** — already installed as a cluster addon (`keda/application-keda.yaml`).
-- **Argo Workflows controller** — installed by
-  [`usage-etl-argo-keda/argo-workflows-app.yaml`](infra/base/usage-etl-argo-keda/argo-workflows-app.yaml)
-  (ArgoCD Application, `argoproj/argo-workflows` Helm chart, namespace `argo`).
+- **KEDA** — already installed as a cluster addon, now a flattened umbrella chart
+  [`gitops/infra/keda`](gitops/infra/keda) delivered by the `addons` ApplicationSet.
+- **Argo Workflows controller** — the `argoproj/argo-workflows` Helm chart
+  (namespace `argo`). Not currently delivered; to enable it, add it as a
+  flattened umbrella chart under `gitops/infra/argo-workflows` (mirroring the
+  other addons) so the `addons` ApplicationSet picks it up. The legacy
+  `infra/base/usage-etl-argo-keda/` manifests are unwired.
 - **`usage_events` database** — the usage-service chart's `AppDatabase` claim
   (RDS `usage` instance). Ingest/aggregate/embed connect to it.
 - **MSK** bootstrap brokers — from the Terraform GitOps contract
@@ -48,23 +51,18 @@ Kafka (billing.usage-charge.created)
 
 ### 1. Turn Option A off, Option B on
 
-In [`infra/base/kustomization.yaml`](infra/base/kustomization.yaml):
+Airflow (Option A) is now the flattened chart [`gitops/infra/airflow`](gitops/infra/airflow),
+delivered by the `addons` ApplicationSet; the `infra` ApplicationSet's
+[`infra/base/kustomization.yaml`](infra/base/kustomization.yaml) carries only raw
+platform manifests (`pod-identity-refresh`). To switch to Option B:
 
-```diff
- resources:
--  - airflow/airflow.yaml
--  - airflow/appdatabase.yaml
-+  - usage-etl-argo-keda            # pulls in this dir's kustomization
-   - keycloak/keycloak-app.yaml
-   - keycloak/deployment.yaml
-   - keycloak/service.yaml
-   - pod-identity-refresh/application.yaml
-```
+- **Disable Airflow** — remove `gitops/infra/airflow/app.yaml` (so the `addons`
+  matrix stops generating it), or gate it off per env.
+- **Enable the Argo Workflows ETL** — wire the `usage-etl-argo-keda` manifests
+  (namespace, `CronWorkflow`, `ingest.yaml`) into the `infra` overlays, and add
+  the `argo-workflows` controller as a flattened chart (see Prerequisites).
 
-To run B in only one environment instead, leave `base` on Airflow and add
-`- ../../base/usage-etl-argo-keda` to that env's
-`infra/overlays/<env>/kustomization.yaml` **and** remove Airflow there — never
-both in the same cluster.
+Never run both Airflow and the Argo Workflows ETL in the same cluster.
 
 ### 2. Provide the `usage-etl-env` Secret
 

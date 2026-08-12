@@ -348,9 +348,9 @@ Applications are generated*, not *how manifests are rendered*:
 |---|---|---|
 | [`microservices`](appsets/microservices.yaml) | **Helm** | OCI chart + `$values` env file per service (matrix: cluster × service) |
 | [`api-gateway`](appsets/api-gateway.yaml) | **Helm + Kustomize post-render** | saas-chart rendered by Helm, then patched by `post-renderer/saas-chart/overlays/<env>` |
-| [`infra`](appsets/infra.yaml) | **Kustomize** | `infra/overlays/<env>` (Airflow, KEDA, Argo Rollouts, Crossplane, observability) |
-| [`addons`](appsets/addons.yaml) | **Kustomize (matrix: cluster × git files)** | Cluster addons moved out of Terraform — `gitops/infra/<addon>/overlays/<env>` |
-| [`observability`](appsets/observability.yaml) | **Kustomize (label-gated matrix: cluster × git files)** | Grafana stack (dev) / ELK (staging) via `gitops/observability/<stack>/*`, gated on the cluster's `observability` label |
+| [`infra`](appsets/infra.yaml) | **Kustomize (raw manifests)** | `infra/overlays/<env>` — crossplane `provider-sql` wiring + `pod-identity-refresh` (Helm addons moved to `addons`) |
+| [`addons`](appsets/addons.yaml) | **Helm + Kustomize post-render (matrix: cluster × git files)** | Cluster addons moved out of Terraform — local umbrella chart `gitops/infra/<addon>` |
+| [`observability`](appsets/observability.yaml) | **Helm + Kustomize post-render (label-gated matrix: cluster × git files)** | Grafana stack (dev) / ELK (staging) via `gitops/observability/<stack>/*`, gated on the cluster's `observability` label |
 | [`istio`](appsets/istio.yaml) | Upstream Helm | istio base + istiod |
 | [`platform`](appsets/platform.yaml) | Raw manifests | Crossplane XRDs + Compositions (`prune: false`) |
 
@@ -359,15 +359,38 @@ Applications are generated*, not *how manifests are rendered*:
 Everything Terraform used to install onto the cluster **except the ArgoCD
 bootstrap itself** now lives in Git and is delivered by the `addons`
 ApplicationSet: cert-manager, external-dns, external-secrets, karpenter,
-keycloak, aws-load-balancer-controller and nginx-gateway-fabric. It is a
-**hybrid** of the two patterns above — a `matrix` generator over
-`clusters × git files` for the env fan-out and addon discovery
-(`gitops/infra/*/app.yaml`), with **Kustomize** rendering each addon's
-`base` + per-env `overlays/<env>` (so Helm-based addons are wrapped as child
-Applications and patched per env). Cluster-specific values Terraform used to
-inject are now set by the overlays: `saas-eks-<env>` cluster name (karpenter,
-aws-lb), the keycloak DB host (in-cluster Postgres for dev/staging, RDS for
-prod), etc. The ArgoCD `helm_release` stays in Terraform as the bootstrap.
+keycloak, aws-load-balancer-controller, nginx-gateway-fabric, the ArgoCD UI
+gateway, and the platform controllers pulled out of the old `infra` layer —
+KEDA, Argo Rollouts, Crossplane (operator), Airflow, and argocd-image-updater.
+The `infra` ApplicationSet now delivers only **raw** platform manifests
+(crossplane `provider-sql`, `pod-identity-refresh`), so it no longer creates
+child Applications.
+
+It is **flattened** — no app-of-apps. A `matrix` generator
+(`clusters × gitops/infra/*/app.yaml`) emits **one Application per (cluster,
+addon)** whose source is the addon's **local umbrella Helm chart**
+(`gitops/infra/<addon>`, with the upstream chart pulled as a Helm dependency and
+vendored under `charts/`). **Kustomize is kept as the Helm post-renderer** — the
+same mechanism as [`api-gateway`](appsets/api-gateway.yaml)/`saas-chart`, via
+`helm.postRenderer.kustomize.dir: post-renderer/infra/<addon>/overlays/<env>` —
+rather than as a child-Application wrapper. Each addon installs directly into its
+own namespace (from `app.yaml`).
+
+Config is layered value files: `values.yaml` + `values-<env>.yaml` (hand-authored;
+raw resources like the karpenter NodePool, keycloak gateway / in-cluster Postgres,
+and the external-secrets `ClusterSecretStore` are chart `templates/` gated by
+values) + `values-<env>.generated.yaml` (rendered from the Terraform gitops
+contract by `scripts/render_gitops.py` — karpenter clusterName/queue, keycloak
+prod DB host — loaded with `ignoreMissingValueFiles`). The ArgoCD `helm_release`
+stays in Terraform as the bootstrap.
+
+The `post-renderer/infra/<addon>/overlays/<env>` overlays don't just relabel —
+each carries a **genuine per-env patch** tuned to that chart: the primary
+workload's resource tier scales `dev` (¼) → `staging` (½) → `prod` (full), the
+leader-electing controllers (cert-manager, keda, argo-rollouts, crossplane,
+external-secrets, aws-lb, nginx-gateway) run **2 replicas in prod**, and the
+workload-less `argocd-gateway` flips its NLB from `internal` (dev/staging) to
+`internet-facing` (prod).
 
 #### `observability` — label-gated multi-env cluster matrix
 
@@ -388,6 +411,15 @@ metadata:
     env: dev
     observability: grafana   # grafana | elk ; omit for none (prod)
 ```
+
+Each component is **flattened the same way as the addons** — a local umbrella
+Helm chart (`gitops/observability/<stack>/<comp>`) rendered directly with
+Kustomize as the Helm post-renderer, no app-of-apps. The node/system agents that
+legitimately need host access (Prometheus `node-exporter`, Loki `promtail`,
+Elasticsearch's `configure-sysctl` init) carry a
+`policy.saas.io/allow-host-access: "true"` annotation — added **only to those
+workloads** by the component's post-renderer — which the OPA security policy
+honours as a precise, auditable exemption (see `policy/kubernetes/security.rego`).
 
 #### Securing the ArgoCD & Grafana UIs
 

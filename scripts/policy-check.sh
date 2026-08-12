@@ -43,15 +43,33 @@ for env in "${ENVS[@]}"; do
   run_conftest "kustomize infra/overlays/${env}" "${out}"
 done
 
-# Cluster addons + observability stacks moved into GitOps (gitops/**), rendered
-# per env by the `addons` / `observability` ApplicationSets. Every overlay dir
-# (whatever its depth) is gated with the same policy set.
-while IFS= read -r overlay; do
-  label="${overlay#gitops/}"
-  out="${WORK}/gitops-$(echo "${label}" | tr '/' '-').yaml"
-  kustomize build "${overlay}" > "${out}"
-  run_conftest "kustomize ${overlay}" "${out}"
-done < <(find gitops -type d -path '*/overlays/*' -not -path '*/overlays' | sort)
+# Every gitops/** addon (infra + observability) is a local umbrella Helm chart
+# rendered per env, then Kustomize post-rendered — the same helm+kustomize path as
+# saas-chart, matching how the flattened addons/observability ApplicationSets apply
+# them. Each chart's post-renderer overlays declare which envs it targets.
+while IFS= read -r chart; do
+  dir="$(dirname "${chart}")"           # gitops/infra/<addon> | gitops/observability/<stack>/<comp>
+  rel="${dir#gitops/}"
+  addon="$(basename "${dir}")"
+  ns="$(awk '/^namespace:/{print $2}' "${dir}/app.yaml")"
+  prbase="post-renderer/${rel}"
+  for ov in "${prbase}"/overlays/*/; do
+    [[ -d "${ov}" ]] || continue
+    env="$(basename "${ov}")"
+    tag="${rel//\//-}-${env}"
+    pr="${WORK}/gitops-${tag}"
+    cp -r "${prbase}" "${pr}"
+    vfs=(-f "${dir}/values.yaml")
+    [[ -f "${dir}/values-${env}.yaml" ]] && vfs+=(-f "${dir}/values-${env}.yaml")
+    [[ -f "${dir}/values-${env}.generated.yaml" ]] && vfs+=(-f "${dir}/values-${env}.generated.yaml")
+    helm template "${addon}" "${dir}" "${vfs[@]}" --namespace "${ns}" --include-crds \
+      > "${pr}/base/rendered.yaml"
+    ( cd "${pr}/base" && kustomize edit add resource rendered.yaml )
+    out="${WORK}/gitops-${tag}.yaml"
+    kustomize build "${pr}/overlays/${env}" > "${out}"
+    run_conftest "helm+kustomize ${rel}/${env}" "${out}"
+  done
+done < <(find gitops -name Chart.yaml | sort)
 
 if [[ "${FAILED}" -ne 0 ]]; then
   echo "policy-check: FAILED — one or more manifests violated a deny policy" >&2

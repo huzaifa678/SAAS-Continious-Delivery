@@ -64,15 +64,16 @@ build.
 
 ## Cluster setup (prerequisites)
 
-The addon is installed per cluster via
-[`infra/base/argocd-image-updater/`](../infra/base/argocd-image-updater/)
-(referenced from each env overlay). Before it can update anything:
+The addon is a flattened umbrella chart
+[`gitops/infra/argocd-image-updater/`](../gitops/infra/argocd-image-updater/),
+delivered per env by the `addons` ApplicationSet. Before it can update anything:
 
 1. **ECR read access** — the `argocd-image-updater` ServiceAccount needs IRSA
    with `ecr:GetAuthorizationToken`, `ecr:BatchGetImage`,
    `ecr:GetDownloadUrlForLayer`, `ecr:DescribeImages`. Set the role ARN in the
-   addon's `serviceAccount.annotations`. The bundled `ecr-login.sh` auth script
-   exchanges that for a registry token every `credsexpire`.
+   chart's `values.yaml` under `argocd-image-updater.serviceAccount.annotations`.
+   The bundled `ecr-login.sh` auth script exchanges that for a registry token
+   every `credsexpire`.
 2. **Git write-back creds** — a secret `image-updater-git-creds` in `argocd`
    holding a token/deploy key with **write** access to this repo, referenced by
    `write-back-method: git:secret:argocd/image-updater-git-creds`. Give it the
