@@ -1,0 +1,4 @@
+host: grafana.dev.saas.internal
+issuer: letsencrypt
+# Backend service = grafana subchart of the prometheus-stack release.
+backendService: prometheus-stack-grafana

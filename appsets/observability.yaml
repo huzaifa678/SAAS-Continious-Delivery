@@ -40,14 +40,26 @@ spec:
       source:
         repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
         targetRevision: main
-        path: '{{.path.path}}/overlays/{{.metadata.labels.env}}'
+        path: '{{.path.path}}'
+        helm:
+          ignoreMissingValueFiles: true
+          valueFiles:
+            - values.yaml
+            - 'values-{{.metadata.labels.env}}.yaml'
+          # Kustomize post-renderer (path mirrors the chart dir under post-renderer/).
+          postRenderer:
+            kustomize:
+              dir: '{{ .path.path | replace "gitops/" "post-renderer/" }}/overlays/{{.metadata.labels.env}}'
       destination:
         server: '{{.server}}'
-        namespace: argocd
+        namespace: '{{.namespace}}'
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
           allowEmpty: false
         syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - PruneLast=true
           - ApplyOutOfSyncOnly=true
