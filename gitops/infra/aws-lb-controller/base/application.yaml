@@ -1,0 +1,41 @@
+---
+# Moved from Terraform (modules/k8s-and-helm/aws-lb-controller.tf, the direct
+# helm_release "aws_lb_controller"). Converted to an ArgoCD Application.
+#
+# parameters[0] (clusterName) is a placeholder patched per env by each overlay.
+# region stays in base (all clusters are us-east-1). vpcId is intentionally
+# omitted: the controller auto-discovers the VPC from instance metadata, which
+# removes the Terraform-injected var.vpc_id dependency.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-load-balancer-controller
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: https://aws.github.io/eks-charts
+    chart: aws-load-balancer-controller
+    targetRevision: "*"
+    helm:
+      releaseName: aws-load-balancer-controller
+      parameters:
+        - name: clusterName
+          value: PATCHED_PER_ENV
+        - name: region
+          value: us-east-1
+        - name: serviceAccount.create
+          value: "true"
+        - name: serviceAccount.name
+          value: aws-load-balancer-controller
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - PruneLast=true

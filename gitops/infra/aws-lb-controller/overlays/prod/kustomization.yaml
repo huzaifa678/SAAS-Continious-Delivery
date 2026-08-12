@@ -1,0 +1,18 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# Inject this cluster's name (parameters[0]); Terraform used to pass var.cluster_name.
+patches:
+  - target:
+      group: argoproj.io
+      version: v1alpha1
+      kind: Application
+      name: aws-load-balancer-controller
+    patch: |-
+      - op: replace
+        path: /spec/source/helm/parameters/0/value
+        value: saas-eks-prod

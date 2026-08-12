@@ -1,0 +1,51 @@
+---
+# Cluster addons moved out of Terraform (everything except the ArgoCD bootstrap
+# itself). HYBRID model:
+#   • matrix generator  →  clusters (env fan-out) × git files (addon discovery)
+#   • kustomize renderer →  each addon is a kustomize base + per-env overlay
+#
+# The git-files generator discovers one `app.yaml` per addon directory. The
+# generated Application then points at that addon's kustomize overlay for the
+# cluster's env, so Helm-based addons are wrapped as child Applications and
+# rendered/patched by Kustomize (app-of-apps, identical to the `infra` appset).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: addons
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchExpressions:
+                  - { key: env, operator: Exists }
+          - git:
+              repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+              revision: main
+              files:
+                - path: gitops/infra/*/app.yaml
+  template:
+    metadata:
+      name: '{{.path.basename}}-{{.metadata.labels.env}}'
+      namespace: argocd
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{.syncWave}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+        targetRevision: main
+        path: '{{.path.path}}/overlays/{{.metadata.labels.env}}'
+      destination:
+        server: '{{.server}}'
+        namespace: argocd
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - ApplyOutOfSyncOnly=true

@@ -1,0 +1,61 @@
+---
+# Moved from Terraform (modules/k8s-and-helm/gateway-nginx.tf, helm_release
+# "nginx_gateway_fabric" + the gateway-api-crds kubectl_manifest).
+#
+# In Terraform the 717 KB gateway-api-crds.yaml was applied inline before the
+# chart. In GitOps the standard-channel CRDs are installed from upstream by a
+# dedicated Application (sync-wave -2) so they land before the controller.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway-api-crds
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kubernetes-sigs/gateway-api
+    targetRevision: v1.1.0
+    path: config/crd/standard
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nginx-gateway-fabric
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: oci://ghcr.io/nginx/charts
+    chart: nginx-gateway-fabric
+    targetRevision: "*"
+    helm:
+      releaseName: nginx-gateway-fabric
+      parameters:
+        - name: nginxGateway.gwAPIExperimentalFeatures.enable
+          value: "false"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: nginx-gateway
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - PruneLast=true
