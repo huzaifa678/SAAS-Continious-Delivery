@@ -38,17 +38,32 @@ jobs:
             > "contracts/gitops-contract.${{ inputs.environment }}.json"
 
       - name: Render manifests
+        env:
+          ENV: ${{ inputs.environment }}
         run: |
-          python3 scripts/render_gitops.py \
-            --contract "contracts/gitops-contract.${{ inputs.environment }}.json" \
-            --out "infra/overlays/${{ inputs.environment }}/crossplane/provider-sql.yaml"
+          contract="contracts/gitops-contract.${ENV}.json"
+          # provider-sql (crossplane) — unchanged.
+          python3 scripts/render_gitops.py --contract "$contract" \
+            --out "infra/overlays/${ENV}/crossplane/provider-sql.yaml"
+          # karpenter clusterName + interruption queue, from the contract cluster block.
+          python3 scripts/render_gitops.py --contract "$contract" \
+            --karpenter-out "gitops/infra/karpenter/overlays/${ENV}/cluster.generated.yaml"
+          # keycloak external DB host — prod only (dev/staging use in-cluster Postgres).
+          if [ "$ENV" = "prod" ]; then
+            python3 scripts/render_gitops.py --contract "$contract" \
+              --keycloak-out "gitops/infra/keycloak/overlays/prod/db-host.generated.yaml"
+          fi
 
       - name: Commit rendered manifests
+        env:
+          ENV: ${{ inputs.environment }}
         run: |
           git config user.name "gitops-renderer[bot]"
           git config user.email "gitops-renderer@users.noreply.github.com"
-          git add "contracts/gitops-contract.${{ inputs.environment }}.json" \
-            "infra/overlays/${{ inputs.environment }}/crossplane/provider-sql.yaml"
+          git add "contracts/gitops-contract.${ENV}.json" \
+            "infra/overlays/${ENV}/crossplane/provider-sql.yaml" \
+            "gitops/infra/karpenter/overlays/${ENV}/cluster.generated.yaml"
+          [ "$ENV" = "prod" ] && git add "gitops/infra/keycloak/overlays/prod/db-host.generated.yaml" || true
           if git diff --cached --quiet; then
             echo "no changes to commit"
           else

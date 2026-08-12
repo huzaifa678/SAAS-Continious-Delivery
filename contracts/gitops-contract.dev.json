@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "cluster": { "name": "saas-eks-dev", "region": "us-east-1", "karpenter_interruption_queue": "saas-eks-dev-karpenter-interruption" },
   "databases": {
     "subscription": { "instance": "subscription", "endpoint": "saas-subscription-db.xxxx.us-east-1.rds.amazonaws.com:5432", "db_name": "subscription_db", "username": "subscription_user", "secret_name": "saas-subscription-db-secret" },
     "billing":      { "instance": "billing",      "endpoint": "saas-billing-db.xxxx.us-east-1.rds.amazonaws.com:5432",      "db_name": "billing_db",      "username": "billing_user",      "secret_name": "saas-billing-db-secret" },
