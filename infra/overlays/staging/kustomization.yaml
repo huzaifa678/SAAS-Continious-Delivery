@@ -5,8 +5,8 @@ kind: Kustomization
 resources:
   - ../../base
   - ../../base/argocd-image-updater
-  - observability/application-elasticsearch.yaml
-  - observability/application-kibana.yaml
+  # observability moved to the `observability` ApplicationSet
+  # (gitops/observability/elk/*), gated on the cluster's observability label.
   - keda/application-keda.yaml
   - argo-rollouts/application-argo-rollouts.yaml
   - crossplane/application-crossplane.yaml

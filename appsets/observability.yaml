@@ -1,0 +1,53 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: observability
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  observability: grafana
+          - git:
+              repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+              revision: main
+              files:
+                - path: gitops/observability/grafana/*/app.yaml
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  observability: elk
+          - git:
+              repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+              revision: main
+              files:
+                - path: gitops/observability/elk/*/app.yaml
+  template:
+    metadata:
+      name: '{{.path.basename}}-{{.metadata.labels.env}}'
+      namespace: argocd
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{.syncWave}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+        targetRevision: main
+        path: '{{.path.path}}/overlays/{{.metadata.labels.env}}'
+      destination:
+        server: '{{.server}}'
+        namespace: argocd
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - ApplyOutOfSyncOnly=true
