@@ -1,0 +1,4 @@
+nginx-gateway-fabric:
+  nginxGateway:
+    gwAPIExperimentalFeatures:
+      enable: false

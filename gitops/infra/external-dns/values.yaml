@@ -1,0 +1,19 @@
+external-dns:
+  provider:
+    name: aws
+    aws:
+      zoneType: public
+  policy: sync
+  registry: txt
+  txtOwnerId: argocd
+  serviceAccount:
+    create: true
+    name: external-dns
+  rbac:
+    create: true
+  sources:
+    - gateway-httproute
+    - gateway-grpcroute
+  managedRecordTypes:
+    - CNAME
+    - A

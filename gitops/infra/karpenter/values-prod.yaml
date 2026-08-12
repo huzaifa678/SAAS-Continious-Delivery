@@ -1,0 +1,3 @@
+nodePool:
+  enabled: true
+  instanceProfile: saas-eks-prod-karpenter-node-profile

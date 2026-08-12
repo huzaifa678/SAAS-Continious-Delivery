@@ -1,0 +1,11 @@
+external-secrets:
+  installCRDs: true
+  serviceAccount:
+    create: true
+    name: external-secrets
+
+# The AWS Secrets Manager ClusterSecretStore (templates/clustersecretstore.yaml).
+clusterSecretStore:
+  enabled: true
+  name: aws-secrets-manager
+  region: us-east-1

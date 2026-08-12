@@ -1,0 +1,13 @@
+# settings.clusterName / settings.interruptionQueue are injected per env from the
+# Terraform gitops contract into values-<env>.generated.yaml (render_gitops.py).
+karpenter:
+  controller:
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits:   { cpu: "1",  memory: 1Gi }
+  replicas: 2
+
+# NodePool + EC2NodeClass (templates/nodepool.yaml) — enabled per env (prod).
+nodePool:
+  enabled: false
+  instanceProfile: ""

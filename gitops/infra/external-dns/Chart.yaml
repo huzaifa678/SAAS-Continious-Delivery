@@ -1,0 +1,10 @@
+---
+apiVersion: v2
+name: external-dns
+description: external-dns cluster addon (upstream chart)
+type: application
+version: 0.1.0
+dependencies:
+  - name: external-dns
+    version: "*"
+    repository: https://kubernetes-sigs.github.io/external-dns/

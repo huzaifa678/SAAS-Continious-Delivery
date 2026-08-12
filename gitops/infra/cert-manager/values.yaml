@@ -1,0 +1,20 @@
+# Values for the upstream cert-manager subchart live under its dependency name.
+cert-manager:
+  crds:
+    enabled: true
+  serviceAccount:
+    create: true
+    name: cert-manager
+  config:
+    apiVersion: controller.config.cert-manager.io/v1alpha1
+    kind: ControllerConfiguration
+    enableGatewayAPI: true
+  startupapicheck:
+    enabled: false
+
+# Our own ClusterIssuer (rendered by templates/clusterissuer.yaml).
+clusterIssuer:
+  enabled: true
+  email: huzaifagill411@gmail.com
+  server: https://acme-v02.api.letsencrypt.org/directory
+  region: us-east-1

@@ -1,0 +1,10 @@
+---
+apiVersion: v2
+name: keycloak
+description: Keycloak cluster addon (bitnami chart + in-cluster PG / prod gateway)
+type: application
+version: 0.1.0
+dependencies:
+  - name: keycloak
+    version: "*"
+    repository: https://charts.bitnami.com/bitnami

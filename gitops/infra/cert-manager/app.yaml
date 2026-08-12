@@ -1,3 +1,5 @@
-# Git-files generator config for the `addons` ApplicationSet.
-# Discovered via gitops/infra/*/app.yaml; keys are exposed as template params.
+# Git-files generator config for the flattened addons ApplicationSet.
+# namespace is the addon's OWN namespace now (the appset installs the chart
+# directly — no app-of-apps wrapper into argocd).
+namespace: cert-manager
 syncWave: "-1"

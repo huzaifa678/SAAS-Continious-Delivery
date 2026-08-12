@@ -1,0 +1,7 @@
+# clusterName is set per env in values-<env>.yaml (deterministic: saas-eks-<env>).
+# vpcId is omitted so the controller auto-discovers it from instance metadata.
+aws-load-balancer-controller:
+  region: us-east-1
+  serviceAccount:
+    create: true
+    name: aws-load-balancer-controller

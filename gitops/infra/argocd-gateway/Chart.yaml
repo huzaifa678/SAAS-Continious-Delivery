@@ -1,0 +1,6 @@
+---
+apiVersion: v2
+name: argocd-gateway
+description: Secure the ArgoCD UI via nginx-gateway-fabric + cert-manager (template-only chart)
+type: application
+version: 0.1.0

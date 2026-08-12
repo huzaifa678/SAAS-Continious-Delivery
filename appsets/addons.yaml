@@ -1,13 +1,15 @@
 ---
-# Cluster addons moved out of Terraform (everything except the ArgoCD bootstrap
-# itself). HYBRID model:
-#   • matrix generator  →  clusters (env fan-out) × git files (addon discovery)
-#   • kustomize renderer →  each addon is a kustomize base + per-env overlay
+# Cluster addons moved out of Terraform (everything except the ArgoCD bootstrap).
+# FLATTENED model (no app-of-apps): the matrix generator (clusters × git-files)
+# emits ONE Application per (cluster, addon) whose source is the addon's local
+# umbrella Helm chart (gitops/infra/<addon>, upstream chart pulled as a Helm
+# dependency). Kustomize is kept as the Helm POST-RENDERER — the same mechanism
+# as the api-gateway/saas-chart appset — not as a child-Application wrapper.
 #
-# The git-files generator discovers one `app.yaml` per addon directory. The
-# generated Application then points at that addon's kustomize overlay for the
-# cluster's env, so Helm-based addons are wrapped as child Applications and
-# rendered/patched by Kustomize (app-of-apps, identical to the `infra` appset).
+#   ApplicationSet → Application(helm chart + kustomize post-render) → workload
+#
+# Per-env config: values-<env>.yaml (hand-authored) + values-<env>.generated.yaml
+# (rendered from the Terraform gitops contract by scripts/render_gitops.py).
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -29,6 +31,7 @@ spec:
                 - path: gitops/infra/*/app.yaml
   template:
     metadata:
+      # {{.path.basename}} is the addon directory / chart name (e.g. cert-manager).
       name: '{{.path.basename}}-{{.metadata.labels.env}}'
       namespace: argocd
       annotations:
@@ -38,14 +41,28 @@ spec:
       source:
         repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
         targetRevision: main
-        path: '{{.path.path}}/overlays/{{.metadata.labels.env}}'
+        path: '{{.path.path}}'
+        helm:
+          ignoreMissingValueFiles: true
+          valueFiles:
+            - values.yaml
+            - 'values-{{.metadata.labels.env}}.yaml'
+            - 'values-{{.metadata.labels.env}}.generated.yaml'
+          # Helm output post-rendered by this Kustomize overlay before apply.
+          postRenderer:
+            kustomize:
+              dir: 'post-renderer/infra/{{.path.basename}}/overlays/{{.metadata.labels.env}}'
       destination:
+        # The addon installs directly into its own namespace (no app-of-apps).
         server: '{{.server}}'
-        namespace: argocd
+        namespace: '{{.namespace}}'
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
           allowEmpty: false
         syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - PruneLast=true
           - ApplyOutOfSyncOnly=true

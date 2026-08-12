@@ -1,0 +1,10 @@
+---
+apiVersion: v2
+name: cert-manager
+description: cert-manager cluster addon (upstream chart + our ClusterIssuer)
+type: application
+version: 0.1.0
+dependencies:
+  - name: cert-manager
+    version: v1.18.2
+    repository: oci://quay.io/jetstack/charts

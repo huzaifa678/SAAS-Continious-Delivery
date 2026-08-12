@@ -1,0 +1,18 @@
+keycloak:
+  auth:
+    adminUser: admin
+  # Use an external DB (in-cluster Postgres for dev/staging, RDS for prod), not
+  # the chart's bundled postgresql subchart.
+  postgresql:
+    enabled: false
+  externalDatabase:
+    port: 5432
+    database: keycloak_db
+    user: keycloak_user
+
+# In-cluster Postgres (templates/postgres.yaml) for non-prod; prod uses RDS.
+inClusterDb:
+  enabled: false
+# TLS gateway/HTTPRoute (templates/gateway.yaml) — prod only.
+gateway:
+  enabled: false

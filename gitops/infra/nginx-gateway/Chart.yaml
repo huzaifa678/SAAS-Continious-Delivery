@@ -1,0 +1,10 @@
+---
+apiVersion: v2
+name: nginx-gateway
+description: NGINX Gateway Fabric cluster addon (chart + Gateway API CRDs)
+type: application
+version: 0.1.0
+dependencies:
+  - name: nginx-gateway-fabric
+    version: "*"
+    repository: oci://ghcr.io/nginx/charts

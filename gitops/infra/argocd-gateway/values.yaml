@@ -1,0 +1,3 @@
+# Per-env hostname set in values-<env>.yaml.
+host: argocd.saas.internal
+issuer: letsencrypt
