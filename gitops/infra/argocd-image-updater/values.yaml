@@ -1,0 +1,27 @@
+argocd-image-updater:
+  config:
+    logLevel: info
+    registries:
+      - name: ECR
+        prefix: 123456789.dkr.ecr.us-east-1.amazonaws.com
+        api_url: https://123456789.dkr.ecr.us-east-1.amazonaws.com
+        ping: true
+        credentials: ext:/scripts/ecr-login.sh
+        credsexpire: 10h
+  gitCommitUser: argocd-image-updater
+  gitCommitMail: image-updater@saas.local
+  authScripts:
+    enabled: true
+    scripts:
+      ecr-login.sh: |
+        #!/bin/sh
+        aws ecr --region us-east-1 get-authorization-token \
+          --output text --query 'authorizationData[].authorizationToken' \
+          | base64 -d
+  serviceAccount:
+    create: true
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/argocd-image-updater
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits:   { cpu: 200m, memory: 128Mi }

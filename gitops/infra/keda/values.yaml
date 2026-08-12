@@ -1,0 +1,13 @@
+keda:
+  prometheus:
+    metricServer:
+      enabled: true
+    operator:
+      enabled: true
+  resources:
+    operator:
+      requests: { cpu: 50m, memory: 100Mi }
+      limits:   { cpu: 200m, memory: 256Mi }
+    metricServer:
+      requests: { cpu: 50m, memory: 100Mi }
+      limits:   { cpu: 200m, memory: 256Mi }

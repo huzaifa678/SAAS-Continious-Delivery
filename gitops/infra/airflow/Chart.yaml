@@ -1,0 +1,10 @@
+---
+apiVersion: v2
+name: airflow
+description: airflow cluster addon (upstream chart)
+type: application
+version: 0.1.0
+dependencies:
+  - name: airflow
+    version: "*"
+    repository: https://airflow-helm.github.io/charts

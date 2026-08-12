@@ -2,12 +2,10 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+# Helm addons (keda, argo-rollouts, crossplane operator, airflow, image-updater)
+# moved to the flattened `addons` ApplicationSet. This overlay now delivers only
+# raw platform manifests: the crossplane provider-sql wiring (contract-generated)
+# and the pod-identity-refresh app (from base).
 resources:
   - ../../base
-  - ../../base/argocd-image-updater
-  # observability moved to the `observability` ApplicationSet
-  # (gitops/observability/elk/*), gated on the cluster's observability label.
-  - keda/application-keda.yaml
-  - argo-rollouts/application-argo-rollouts.yaml
-  - crossplane/application-crossplane.yaml
   - crossplane/provider-sql.yaml

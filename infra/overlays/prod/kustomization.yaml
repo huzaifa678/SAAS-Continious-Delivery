@@ -2,16 +2,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# keycloak, karpenter, cert-manager, external-dns, external-secrets,
-# aws-lb-controller and nginx-gateway have moved out of Terraform into the
-# `addons` ApplicationSet (gitops/infra/*), which fans out per env. The prod
-# keycloak gateway and karpenter NodePool now live under those addon overlays.
-# This overlay only includes: shared airflow + the Git-managed cluster addons.
-
+# Helm addons moved to the flattened `addons` ApplicationSet. Prod delivers only
+# the crossplane provider-sql wiring (contract-generated).
 resources:
-  - ../../base/airflow
-  - ../../base/argocd-image-updater
-  - keda/application-keda.yaml
-  - argo-rollouts/application-argo-rollouts.yaml
-  - crossplane/application-crossplane.yaml
   - crossplane/provider-sql.yaml

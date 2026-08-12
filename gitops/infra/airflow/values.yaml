@@ -1,0 +1,17 @@
+airflow:
+  executor: KubernetesExecutor
+  postgresql:
+    enabled: false
+  redis:
+    enabled: false
+  airflow:
+    extraEnv:
+      - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+        valueFrom:
+          secretKeyRef:
+            name: airflow-db
+            key: dsn
+
+# Crossplane AppDatabase claim for airflow's metadata DB (templates/appdatabase.yaml).
+appDatabase:
+  enabled: true

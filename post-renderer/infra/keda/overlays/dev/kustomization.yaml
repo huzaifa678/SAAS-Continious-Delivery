@@ -1,0 +1,25 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+commonLabels:
+  environment: dev
+
+patches:
+  - target: { kind: Deployment, name: keda-operator }
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: keda-operator
+      spec:
+        template:
+          spec:
+            containers:
+              - name: keda-operator
+                resources:
+                  requests: { cpu: 25m, memory: 32Mi }
+                  limits: { cpu: 125m, memory: 128Mi }

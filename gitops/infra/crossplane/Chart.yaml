@@ -1,0 +1,10 @@
+---
+apiVersion: v2
+name: crossplane
+description: crossplane cluster addon (upstream chart)
+type: application
+version: 0.1.0
+dependencies:
+  - name: crossplane
+    version: "1.16.0"
+    repository: https://charts.crossplane.io/stable
