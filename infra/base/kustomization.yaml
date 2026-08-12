@@ -5,7 +5,5 @@ kind: Kustomization
 resources:
   - airflow/airflow.yaml
   - airflow/appdatabase.yaml
-  - keycloak/keycloak-app.yaml
-  - keycloak/deployment.yaml
-  - keycloak/service.yaml
+  # keycloak moved to the `addons` ApplicationSet (gitops/infra/keycloak).
   - pod-identity-refresh/application.yaml
