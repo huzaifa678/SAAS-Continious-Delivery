@@ -47,11 +47,11 @@ jobs:
             --out "infra/overlays/${ENV}/crossplane/provider-sql.yaml"
           # karpenter clusterName + interruption queue, from the contract cluster block.
           python3 scripts/render_gitops.py --contract "$contract" \
-            --karpenter-out "gitops/infra/karpenter/overlays/${ENV}/cluster.generated.yaml"
+            --karpenter-out "gitops/infra/karpenter/values-${ENV}.generated.yaml"
           # keycloak external DB host — prod only (dev/staging use in-cluster Postgres).
           if [ "$ENV" = "prod" ]; then
             python3 scripts/render_gitops.py --contract "$contract" \
-              --keycloak-out "gitops/infra/keycloak/overlays/prod/db-host.generated.yaml"
+              --keycloak-out "gitops/infra/keycloak/values-prod.generated.yaml"
           fi
 
       - name: Commit rendered manifests
@@ -62,8 +62,8 @@ jobs:
           git config user.email "gitops-renderer@users.noreply.github.com"
           git add "contracts/gitops-contract.${ENV}.json" \
             "infra/overlays/${ENV}/crossplane/provider-sql.yaml" \
-            "gitops/infra/karpenter/overlays/${ENV}/cluster.generated.yaml"
-          [ "$ENV" = "prod" ] && git add "gitops/infra/keycloak/overlays/prod/db-host.generated.yaml" || true
+            "gitops/infra/karpenter/values-${ENV}.generated.yaml"
+          [ "$ENV" = "prod" ] && git add "gitops/infra/keycloak/values-prod.generated.yaml" || true
           if git diff --cached --quiet; then
             echo "no changes to commit"
           else
