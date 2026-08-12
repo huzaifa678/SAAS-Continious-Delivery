@@ -348,9 +348,65 @@ Applications are generated*, not *how manifests are rendered*:
 |---|---|---|
 | [`microservices`](appsets/microservices.yaml) | **Helm** | OCI chart + `$values` env file per service (matrix: cluster × service) |
 | [`api-gateway`](appsets/api-gateway.yaml) | **Helm + Kustomize post-render** | saas-chart rendered by Helm, then patched by `post-renderer/saas-chart/overlays/<env>` |
-| [`infra`](appsets/infra.yaml) | **Kustomize** | `infra/overlays/<env>` (Airflow, Keycloak, addon Applications) |
+| [`infra`](appsets/infra.yaml) | **Kustomize** | `infra/overlays/<env>` (Airflow, KEDA, Argo Rollouts, Crossplane, observability) |
+| [`addons`](appsets/addons.yaml) | **Kustomize (matrix: cluster × git files)** | Cluster addons moved out of Terraform — `gitops/infra/<addon>/overlays/<env>` |
+| [`observability`](appsets/observability.yaml) | **Kustomize (label-gated matrix: cluster × git files)** | Grafana stack (dev) / ELK (staging) via `gitops/observability/<stack>/*`, gated on the cluster's `observability` label |
 | [`istio`](appsets/istio.yaml) | Upstream Helm | istio base + istiod |
 | [`platform`](appsets/platform.yaml) | Raw manifests | Crossplane XRDs + Compositions (`prune: false`) |
+
+#### `addons` — charts moved out of Terraform
+
+Everything Terraform used to install onto the cluster **except the ArgoCD
+bootstrap itself** now lives in Git and is delivered by the `addons`
+ApplicationSet: cert-manager, external-dns, external-secrets, karpenter,
+keycloak, aws-load-balancer-controller and nginx-gateway-fabric. It is a
+**hybrid** of the two patterns above — a `matrix` generator over
+`clusters × git files` for the env fan-out and addon discovery
+(`gitops/infra/*/app.yaml`), with **Kustomize** rendering each addon's
+`base` + per-env `overlays/<env>` (so Helm-based addons are wrapped as child
+Applications and patched per env). Cluster-specific values Terraform used to
+inject are now set by the overlays: `saas-eks-<env>` cluster name (karpenter,
+aws-lb), the keycloak DB host (in-cluster Postgres for dev/staging, RDS for
+prod), etc. The ArgoCD `helm_release` stays in Terraform as the bootstrap.
+
+#### `observability` — label-gated multi-env cluster matrix
+
+Observability is env-divergent (Grafana stack in dev, ELK in staging, nothing
+in prod — which ships to external OpenSearch via OTel), so a single env-blind
+matrix can't express it. The `observability` ApplicationSet is a **union of two
+stack-gated matrix arms**: each arm is `clusters × git files` but the `clusters`
+generator is pinned by the cluster secret's `observability` label —
+`grafana` → `gitops/observability/grafana/*` (dev), `elk` →
+`gitops/observability/elk/*` (staging). A cluster with no `observability` label
+(prod) gets no in-cluster stack. **Cluster registration** therefore now labels
+the secret with both `env` *and* `observability`:
+
+```yaml
+metadata:
+  labels:
+    argocd.argoproj.io/secret-type: cluster
+    env: dev
+    observability: grafana   # grafana | elk ; omit for none (prod)
+```
+
+#### Securing the ArgoCD & Grafana UIs
+
+Both UIs are exposed through **nginx-gateway-fabric** with a **cert-manager**
+TLS cert, using the same Gateway API pattern as the keycloak gateway:
+
+- ArgoCD — [`gitops/infra/argocd-gateway`](gitops/infra/argocd-gateway) (an
+  `addons` addon, per-env hostname `argocd[.<env>].saas.internal`).
+- Grafana — [`gitops/observability/grafana/grafana-gateway`](gitops/observability/grafana/grafana-gateway)
+  (part of the grafana stack, so it only lands on grafana-labelled clusters —
+  `grafana.dev.saas.internal`).
+
+Each ships a `Certificate` (issued by the shared `letsencrypt` ClusterIssuer
+from the cert-manager addon), a `Gateway` that **terminates** TLS, an
+`HTTPRoute`, and an NLB `Service`. Because TLS terminates at the gateway and is
+forwarded as HTTP to the backend, **ArgoCD must run in insecure mode** — set
+`configs.params.server.insecure: true` in the Terraform `argocd-values.yaml`
+(it is `false` today), otherwise argocd-server redirects `:80 → :443` and the
+route loops. Grafana serves HTTP already, so it needs no change.
 
 **Image delivery** is driven by [Argo CD Image Updater](docs/IMAGE-UPDATER.md):
 **dev only** auto-tracks new immutable `sha-*` tags in ECR via git write-back
@@ -765,6 +821,14 @@ Airflow's metadata DB is a dedicated RDS instance managed via Crossplane
 the Terraform **GitOps contract** (published to SSM by `saas-services-infra`,
 see its `docs/gitops-contract.md`); `scripts/render_gitops.py` fetches it (via
 the `render-gitops` workflow) and renders `crossplane/provider-sql.yaml`.
+
+The contract also carries a `cluster` block (`name`, `region`,
+`karpenter_interruption_queue`), so the addons moved out of Terraform no longer
+hand-keep those values: `render_gitops.py` renders the karpenter clusterName +
+interruption queue (`gitops/infra/karpenter/overlays/<env>/cluster.generated.yaml`)
+and the keycloak prod DB host (`gitops/infra/keycloak/overlays/prod/db-host.generated.yaml`)
+from it. Those `*.generated.yaml` files are committed and overlay-referenced
+(JSON6902 patches), and re-rendered per env by the `render-gitops` workflow.
 
 ## Values Validation with CUE
 

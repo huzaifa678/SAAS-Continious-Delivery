@@ -43,6 +43,16 @@ for env in "${ENVS[@]}"; do
   run_conftest "kustomize infra/overlays/${env}" "${out}"
 done
 
+# Cluster addons + observability stacks moved into GitOps (gitops/**), rendered
+# per env by the `addons` / `observability` ApplicationSets. Every overlay dir
+# (whatever its depth) is gated with the same policy set.
+while IFS= read -r overlay; do
+  label="${overlay#gitops/}"
+  out="${WORK}/gitops-$(echo "${label}" | tr '/' '-').yaml"
+  kustomize build "${overlay}" > "${out}"
+  run_conftest "kustomize ${overlay}" "${out}"
+done < <(find gitops -type d -path '*/overlays/*' -not -path '*/overlays' | sort)
+
 if [[ "${FAILED}" -ne 0 ]]; then
   echo "policy-check: FAILED — one or more manifests violated a deny policy" >&2
   exit 1
