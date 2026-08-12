@@ -1,0 +1,14 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  # NodePool + EC2NodeClass (relocated from infra/overlays/prod/karpenter).
+  - nodepool.yaml
+
+# settings.clusterName + settings.interruptionQueue, rendered from the Terraform
+# gitops_contract (cluster.name / cluster.karpenter_interruption_queue).
+patches:
+  - path: cluster.generated.yaml
+    target: { group: argoproj.io, version: v1alpha1, kind: Application, name: karpenter }
