@@ -1,0 +1,4 @@
+# Git-files generator config for the `addons` ApplicationSet.
+# Discovered via gitops/infra/*/app.yaml; keys are exposed as template params.
+# Syncs after cert-manager + nginx-gateway (which provide the issuer + gatewayclass).
+syncWave: "2"
