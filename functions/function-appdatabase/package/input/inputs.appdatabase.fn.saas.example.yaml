@@ -1,0 +1,35 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: inputs.appdatabase.fn.saas.example
+spec:
+  group: appdatabase.fn.saas.example
+  names:
+    categories:
+      - crossplane
+    kind: Input
+    listKind: InputList
+    plural: inputs
+    singular: input
+  scope: Namespaced
+  versions:
+    - name: v1beta1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          description: Input configures the function-appdatabase composition function.
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            providerConfigFormat:
+              type: string
+              description: 'fmt string mapping the claim''s instance to a provider-sql ProviderConfig name (single %s). Defaults to "rds-%s".'
+            connectionSecretNamespace:
+              type: string
+              description: Namespace the composed Role writes its connection secret to. Defaults to crossplane-system.

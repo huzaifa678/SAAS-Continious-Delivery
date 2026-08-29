@@ -1,13 +1,18 @@
-.PHONY: help schema vet validate check-schema policy policy-test
+.PHONY: help schema vet validate check-schema check-composition composition policy policy-test
+
+COMPOSITION_GEN := scripts/gen/appdatabase-composition
+COMPOSITION_OUT := platform/compositions/appdatabase-postgres.yaml
 
 help:
 	@echo "Targets:"
-	@echo "  schema        Regenerate per-chart values.schema.json from CUE."
-	@echo "  vet           Strictly validate merged values (base+env) per service via cue vet."
-	@echo "  validate      schema + vet + helm template (full pre-commit check)."
-	@echo "  check-schema  Fail if generated values.schema.json is out of sync with CUE (CI gate)."
-	@echo "  policy-test   conftest verify — unit-test the Rego policy set (hermetic)."
-	@echo "  policy        Render helm + kustomize (all svc/env) and run conftest/OPA."
+	@echo "  schema             Regenerate per-chart values.schema.json from CUE."
+	@echo "  vet                Strictly validate merged values (base+env) per service via cue vet."
+	@echo "  validate           schema + vet + helm template (full pre-commit check)."
+	@echo "  check-schema       Fail if generated values.schema.json is out of sync with CUE (CI gate)."
+	@echo "  composition        Regenerate the XAppDatabase Crossplane Composition (Go pipeline generator)."
+	@echo "  check-composition  Fail if the checked-in Composition is out of sync with the generator (CI gate)."
+	@echo "  policy-test        conftest verify — unit-test the Rego policy set (hermetic)."
+	@echo "  policy             Render helm + kustomize (all svc/env) and run conftest/OPA."
 
 policy-test:
 	@conftest verify -p policy/kubernetes
@@ -18,11 +23,27 @@ policy:
 schema:
 	@scripts/gen-values-schema.sh
 
+composition:
+	@cd $(COMPOSITION_GEN) && go run . -out $(CURDIR)/$(COMPOSITION_OUT)
+
+check-composition:
+	@tmp=$$(mktemp); \
+	cp $(COMPOSITION_OUT) $$tmp; \
+	cd $(COMPOSITION_GEN) && go run . -out $(CURDIR)/$(COMPOSITION_OUT) >/dev/null; \
+	cd $(CURDIR); \
+	if ! diff -q $$tmp $(COMPOSITION_OUT) >/dev/null; then \
+	  echo "$(COMPOSITION_OUT) is out of sync with $(COMPOSITION_GEN) — run 'make composition'"; \
+	  mv $$tmp $(COMPOSITION_OUT); \
+	  exit 1; \
+	fi; \
+	rm -f $$tmp; \
+	echo "composition in sync with generator"
+
 vet:
 	@scripts/vet-values.sh
 
 validate: schema vet
-	@for svc in auth-service billing-service subscription-service usage-service; do \
+	@for svc in auth-service billing-service subscription-service usage-service agent-service; do \
 	  for env in dev staging prod; do \
 	    helm template t charts/$$svc -f charts/$$svc/values.yaml -f charts/$$svc/values-$$env.yaml >/dev/null \
 	      && echo "helm: $$svc/$$env OK" \
@@ -32,11 +53,11 @@ validate: schema vet
 
 check-schema:
 	@tmp=$$(mktemp -d); \
-	for svc in auth-service billing-service subscription-service usage-service; do \
+	for svc in auth-service billing-service subscription-service usage-service agent-service; do \
 	  cp charts/$$svc/values.schema.json $$tmp/$$svc.json; \
 	done; \
 	scripts/gen-values-schema.sh >/dev/null; \
-	for svc in auth-service billing-service subscription-service usage-service; do \
+	for svc in auth-service billing-service subscription-service usage-service agent-service; do \
 	  if ! diff -q $$tmp/$$svc.json charts/$$svc/values.schema.json >/dev/null; then \
 	    echo "values.schema.json for $$svc is out of sync with schemas/service — run 'make schema'"; \
 	    exit 1; \

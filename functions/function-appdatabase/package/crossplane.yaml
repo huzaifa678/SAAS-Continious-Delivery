@@ -1,0 +1,15 @@
+apiVersion: meta.pkg.crossplane.io/v1beta1
+kind: Function
+metadata:
+  name: function-appdatabase
+  annotations:
+    meta.crossplane.io/maintainer: SaaS Platform <platform@saas.example>
+    meta.crossplane.io/source: github.com/huzaifa678/SAAS-Continious-Delivery
+    meta.crossplane.io/description: |
+      Composes the provider-sql Role + Database + Grant (and one Extension per
+      requested extension) for the platform.saas.example XAppDatabase API.
+      Replaces function-patch-and-transform with real Go.
+spec:
+  # Functions target the GA function protocol (proto/v1), Crossplane >= 1.14.
+  crossplane:
+    version: ">=v1.14.0"
