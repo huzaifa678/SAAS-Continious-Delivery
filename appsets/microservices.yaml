@@ -21,6 +21,7 @@ spec:
                 - service: billing-service
                 - service: subscription-service
                 - service: usage-service
+                - service: agent-service
   template:
     metadata:
       name: '{{.service}}-{{.metadata.labels.env}}'
