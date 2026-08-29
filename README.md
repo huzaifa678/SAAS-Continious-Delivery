@@ -16,6 +16,7 @@ GitOps-based continuous delivery repository for the SaaS platform. Uses **indivi
 | subscription-service | Service | NestJS subscription management (port 8081) |
 | billing-service | Service | Spring Boot billing & payments (port 8082) |
 | usage-service | Service | Python usage analytics (port 8083) |
+| agent-service | Service | Spring Boot agent orchestration (port 8083) |
 | Keycloak | Identity | OIDC provider for JWT issuance |
 | Apache Airflow | Orchestration | Usage data pipeline scheduler |
 | OpenTelemetry Collector | Observability | Telemetry aggregation (DaemonSet) |
@@ -63,7 +64,18 @@ saas-continious-delivery/
 │   │       ├── deployment.yaml         # renders argoproj.io/Rollout (canary + Istio)
 │   │       ├── analysistemplate.yaml   # Prometheus success-rate + p95 latency gates
 │   │       └── scaledobject.yaml       # KEDA targets the Rollout (not Deployment)
-│   └── usage-service/                   # Usage analytics service chart
+│   ├── usage-service/                   # Usage analytics service chart
+│   │   ├── Chart.yaml
+│   │   ├── values.yaml
+│   │   ├── values-dev.yaml
+│   │   ├── values-prod.yaml
+│   │   ├── values-staging.yaml
+│   │   ├── values.schema.json
+│   │   └── templates/
+│   │       ├── deployment.yaml
+│   │       ├── analysistemplate.yaml
+│   │       └── scaledobject.yaml
+│   └── agent-service/                   # Agent orchestration service chart
 │       ├── Chart.yaml
 │       ├── values.yaml
 │       ├── values-dev.yaml
@@ -150,10 +162,12 @@ saas-continious-delivery/
 ├── platform/                           # Crossplane XRDs + Compositions (platform API for app teams)
 │   ├── xrds/
 │   │   └── appdatabase.yaml             # CompositeResourceDefinition: kind: AppDatabase
-│   └── compositions/
-│       └── appdatabase-postgres.yaml    # Postgres-backed Composition (Database + Role + Grant)
+│   ├── compositions/
+│   │   └── appdatabase-postgres.yaml    # Postgres-backed Composition (Pipeline mode; generated)
+│   └── functions/
+│       └── functions.yaml               # Crossplane Functions: function-appdatabase (custom) + auto-ready
 ├── appsets/                            # ArgoCD ApplicationSets (generate per-env Applications)
-│   ├── microservices.yaml               # Helm — 4 services × envs (cluster generator)
+│   ├── microservices.yaml               # Helm — 5 services × envs (cluster generator)
 │   ├── api-gateway.yaml                 # Helm + Kustomize post-render — saas-chart
 │   ├── infra.yaml                       # Kustomize — infra/overlays/<env>
 │   ├── istio.yaml                       # Upstream Helm — istio base + istiod
@@ -174,10 +188,13 @@ saas-continious-delivery/
 │           └── strict.cue               # Conditional rules used by `cue vet` only
 ├── cue.mod/
 │   └── module.cue                       # CUE module declaration
+├── functions/                          # Custom Crossplane composition functions (Go, packaged as xpkg)
+│   └── function-appdatabase/            # Composes provider-sql Role/Database/Grant/Extension for XAppDatabase
 ├── scripts/
 │   ├── gen-values-schema.sh             # CUE → values.schema.json generator
 │   ├── vet-values.sh                    # Strict per-env vet (base + env values)
-│   └── policy-check.sh                  # Render helm+kustomize, run conftest/OPA
+│   ├── policy-check.sh                  # Render helm+kustomize, run conftest/OPA
+│   └── gen/appdatabase-composition/     # Go generator for the XAppDatabase Composition pipeline
 ├── Makefile                            # schema / vet / validate / check-schema targets
 ├── root/                               # Local-only bootstrap
 │   └── dev-local.yaml                   # minikube infra layer (dev-local branch)
@@ -480,7 +497,7 @@ Configuration for the API Gateway is in `saas-chart/values-<env>.yaml`:
 apiGateway:
   replicas: 2
   port: 9000
-  keycloakJWKSURL: "http://keycloak.keycloak.svc.cluster.local:8080/realms/saas/protocol/openid-connect/certs"
+  keycloakJWKSURL: "http://keycloak-http.keycloak.svc.cluster.local:80/realms/saas/protocol/openid-connect/certs"
   livenessProbe:
     path: /healthz/live
     initialDelaySeconds: 10
@@ -750,7 +767,7 @@ What *does* belong in Crossplane: the **dynamic, recurring layer inside the inst
 | Cloud foundation | Terraform | `saas-services-infra/` | VPC, EKS, RDS instances, KMS, base IAM, IRSA roles for controllers |
 | In-instance dynamic | Crossplane | `saas-continious-delivery/` (this repo) | Postgres databases, roles, grants |
 | Cluster addons | Helm via ArgoCD | this repo | KEDA, Argo Rollouts, Crossplane operator, Prometheus, Loki |
-| Workloads | Helm via ArgoCD | this repo | The 4 microservices |
+| Workloads | Helm via ArgoCD | this repo | The 5 microservices |
 
 ### Architecture
 
@@ -787,7 +804,8 @@ What *does* belong in Crossplane: the **dynamic, recurring layer inside the inst
 **Platform API** ([platform/](platform/)):
 
 - `xrds/appdatabase.yaml` — defines `kind: AppDatabase` claim with validated parameters (`databaseName`, `owner`, `instance ∈ {auth,billing,subscription,usage,keycloak}`, optional `extensions`)
-- `compositions/appdatabase-postgres.yaml` — fans out into `Role` (Postgres user, login privilege) + `Database` (owned by the role) + `Grant` (ALL privileges)
+- `compositions/appdatabase-postgres.yaml` — a **Pipeline-mode** Composition (native `spec.resources` was removed in Crossplane v1.17). Step 1 calls our **custom Go function** [`function-appdatabase`](functions/function-appdatabase) (not the generic `function-patch-and-transform`), which composes `Role` (Postgres user, login privilege) + `Database` (owned by the role) + `Grant` (ALL privileges) + one `Extension` per requested extension; step 2 (`function-auto-ready`) derives XR readiness. **Generated** — do not hand-edit; change [`scripts/gen/appdatabase-composition`](scripts/gen/appdatabase-composition) and run `make composition` (`make check-composition` is the CI gate).
+- `functions/functions.yaml` — installs the two Composition Functions the pipeline references (`function-appdatabase` from ECR, `function-auto-ready`) at sync-wave `-1`, ahead of the XRD/Composition. The `function-appdatabase` image is built + packaged by [`.github/workflows/build-function.yml`](.github/workflows/build-function.yml) (docker runtime image → `crossplane xpkg build --embed-runtime-image` → push `sha-<commit>`); bump the pinned tag in `functions.yaml` to the pushed sha.
 - Synced as a separate `platform-<env>` ArgoCD Application with `prune: false` so XRDs/Compositions are never auto-deleted (deliberate platform contract)
 
 **App-team API** (in any service Helm chart):
