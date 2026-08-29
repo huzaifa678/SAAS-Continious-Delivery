@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-SERVICES=(auth-service billing-service subscription-service usage-service)
+SERVICES=(auth-service billing-service subscription-service usage-service agent-service)
 
 for svc in "${SERVICES[@]}"; do
   out="charts/${svc}/values.schema.json"

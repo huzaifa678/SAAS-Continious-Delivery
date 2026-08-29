@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-SERVICES=(auth-service billing-service subscription-service usage-service)
+SERVICES=(auth-service billing-service subscription-service usage-service agent-service)
 ENVS=(dev staging prod)
 
 fail=0
