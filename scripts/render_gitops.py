@@ -100,6 +100,29 @@ def render_karpenter_values(contract: dict) -> str:
     return BANNER + body
 
 
+def render_functions(contract: dict, tag: str, registry: str = "") -> str:
+    """Crossplane Function install manifest with the function-appdatabase image.
+
+    The registry host comes from the contract's `registry.url` (or an explicit
+    --registry override, e.g. the ECR host the build workflow authenticated to),
+    so the AWS account is never hardcoded; the tag is the image built by
+    .github/workflows/build-function.yml.
+    """
+    if not registry:
+        # Only the contract path needs the version guard; an explicit --registry
+        # lets the build workflow render without fetching the contract.
+        _require_version(contract)
+        registry = (contract.get("registry") or {}).get("url")
+    if not registry:
+        raise SystemExit("no registry: pass --registry or a contract with registry.url")
+    if not tag:
+        raise SystemExit("a function image --function-tag is required")
+    body = _load_tpl("functions.yaml.tpl").replace("__REGISTRY__", registry).replace(
+        "__FN_TAG__", tag
+    )
+    return BANNER + body
+
+
 def _write(path: str, text: str, label: str) -> None:
     with open(path, "w") as handle:
         handle.write(text)
@@ -108,14 +131,22 @@ def _write(path: str, text: str, label: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--contract", required=True, help="Path to gitops-contract JSON")
+    parser.add_argument("--contract", help="Path to gitops-contract JSON (optional only when just --functions-out is used with --registry)")
     parser.add_argument("--out", help="provider-sql output file (default: stdout if no other --*-out given)")
     parser.add_argument("--keycloak-out", help="keycloak values-<env>.generated.yaml output file")
     parser.add_argument("--karpenter-out", help="karpenter values-<env>.generated.yaml output file")
+    parser.add_argument("--functions-out", help="crossplane functions install output file")
+    parser.add_argument("--function-tag", help="function-appdatabase image tag (e.g. sha-abc1234)")
+    parser.add_argument("--registry", default="", help="ECR registry host override (default: contract registry.url)")
     args = parser.parse_args()
 
-    with open(args.contract) as handle:
-        contract = json.load(handle)
+    if args.contract:
+        with open(args.contract) as handle:
+            contract = json.load(handle)
+    elif args.functions_out and args.registry:
+        contract = {}  # functions render with an explicit --registry needs no contract
+    else:
+        raise SystemExit("--contract is required (except for --functions-out with --registry)")
 
     wrote_any = False
     if args.out:
@@ -126,6 +157,13 @@ def main() -> None:
         wrote_any = True
     if args.karpenter_out:
         _write(args.karpenter_out, render_karpenter_values(contract), "karpenter values")
+        wrote_any = True
+    if args.functions_out:
+        _write(
+            args.functions_out,
+            render_functions(contract, args.function_tag, args.registry),
+            "crossplane functions",
+        )
         wrote_any = True
 
     if not wrote_any:
