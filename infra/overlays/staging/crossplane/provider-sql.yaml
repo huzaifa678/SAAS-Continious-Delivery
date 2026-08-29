@@ -19,7 +19,7 @@ spec:
 
 # ─── airflow ───────────────────────────────────────────────────────────────
 ---
-apiVersion: external-secrets.io/v1beta1
+apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: rds-airflow-admin
@@ -65,7 +65,7 @@ spec:
 
 # ─── billing ───────────────────────────────────────────────────────────────
 ---
-apiVersion: external-secrets.io/v1beta1
+apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: rds-billing-admin
@@ -111,7 +111,7 @@ spec:
 
 # ─── keycloak ───────────────────────────────────────────────────────────────
 ---
-apiVersion: external-secrets.io/v1beta1
+apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: rds-keycloak-admin
@@ -157,7 +157,7 @@ spec:
 
 # ─── subscription ───────────────────────────────────────────────────────────────
 ---
-apiVersion: external-secrets.io/v1beta1
+apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: rds-subscription-admin
@@ -203,7 +203,7 @@ spec:
 
 # ─── usage ───────────────────────────────────────────────────────────────
 ---
-apiVersion: external-secrets.io/v1beta1
+apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: rds-usage-admin

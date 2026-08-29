@@ -1,6 +1,10 @@
 argocd-image-updater:
+  # Chart 1.x restructured these keys: logLevel -> config.log.level, and the
+  # top-level gitCommitUser/gitCommitMail -> config.git.user/config.git.email.
   config:
-    logLevel: info
+    log.level: info
+    git.user: argocd-image-updater
+    git.email: image-updater@saas.local
     registries:
       - name: ECR
         prefix: 123456789.dkr.ecr.us-east-1.amazonaws.com
@@ -8,8 +12,6 @@ argocd-image-updater:
         ping: true
         credentials: ext:/scripts/ecr-login.sh
         credsexpire: 10h
-  gitCommitUser: argocd-image-updater
-  gitCommitMail: image-updater@saas.local
   authScripts:
     enabled: true
     scripts:

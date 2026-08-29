@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 POLICY_DIR="policy/kubernetes"
-SERVICES=(auth-service billing-service subscription-service usage-service)
+SERVICES=(auth-service billing-service subscription-service usage-service agent-service)
 ENVS=(dev staging prod)
 WORK="$(mktemp -d)"
 trap 'rm -rf "${WORK}"' EXIT

@@ -1,0 +1,5 @@
+.git
+*.xpkg
+_output
+package/*.xpkg
+README.md

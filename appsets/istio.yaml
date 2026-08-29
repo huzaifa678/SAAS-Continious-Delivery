@@ -22,12 +22,12 @@ spec:
       sources:
         - repoURL: https://istio-release.storage.googleapis.com/charts
           chart: base
-          targetRevision: 1.21.2
+          targetRevision: 1.30.4
           helm:
             releaseName: istio-base
         - repoURL: https://istio-release.storage.googleapis.com/charts
           chart: istiod
-          targetRevision: 1.21.2
+          targetRevision: 1.30.4
           helm:
             releaseName: istiod
             values: |

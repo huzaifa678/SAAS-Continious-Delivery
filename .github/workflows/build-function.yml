@@ -1,0 +1,155 @@
+name: build-function
+
+# Builds and packages the custom Crossplane composition function as a docker image
+# and pushes to the ECR repository. The image is then referenced in the platform/functions/functions.yaml
+ 
+on:
+  pull_request:
+    paths:
+      - 'functions/**'
+      - '.github/workflows/build-function.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'functions/**'
+      - '.github/workflows/build-function.yml'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPO: function-appdatabase
+  CROSSPLANE_VERSION: v1.18.0
+
+jobs:
+  build-runtime:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image tag
+        id: meta
+        run: echo "tag=sha-$(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: functions/function-appdatabase
+          push: true
+          # go vet + go test run inside the Dockerfile build.
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:runtime-${{ steps.meta.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  package:
+    runs-on: ubuntu-latest
+    needs: [build-runtime]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Install crossplane CLI
+        run: |
+          curl -sL "https://releases.crossplane.io/stable/${CROSSPLANE_VERSION}/bin/linux_amd64/crank" -o /usr/local/bin/crossplane
+          chmod +x /usr/local/bin/crossplane
+          crossplane version --client
+
+      - name: Build and push the Function package
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ needs.build-runtime.outputs.tag }}
+        run: |
+          set -euo pipefail
+          RUNTIME_REF="${REGISTRY}/${ECR_REPO}:runtime-${TAG}"
+          PACKAGE_REF="${REGISTRY}/${ECR_REPO}:${TAG}"
+          cd functions/function-appdatabase
+          # amazon-ecr-login already wrote ECR creds to ~/.docker/config.json,
+          # which the crossplane CLI's go-containerregistry keychain reads.
+          crossplane xpkg build \
+            --package-root=package \
+            --embed-runtime-image="${RUNTIME_REF}" \
+            --package-file=function.xpkg
+          crossplane xpkg push -f function.xpkg "${PACKAGE_REF}"
+          echo "pushed ${PACKAGE_REF}"
+
+  trivy:
+    runs-on: ubuntu-latest
+    needs: [build-runtime]
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Scan runtime image (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPO }}:runtime-${{ needs.build-runtime.outputs.tag }}
+          exit-code: '1'
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+
+  # main only: pin platform/functions/functions.yaml to the tag just pushed.
+  # The ECR registry host comes from ecr-login (the authenticated account) — the
+  # same host the contract publishes — so the account is never hardcoded.
+  bump-tag:
+    runs-on: ubuntu-latest
+    needs: [build-runtime, package]
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Render functions.yaml with the pushed tag and commit
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ needs.build-runtime.outputs.tag }}
+        run: |
+          set -euo pipefail
+          python3 scripts/render_gitops.py \
+            --functions-out platform/functions/functions.yaml \
+            --registry "$REGISTRY" --function-tag "$TAG"
+          if git diff --quiet platform/functions/functions.yaml; then
+            echo "functions.yaml already at ${TAG}"; exit 0
+          fi
+          git config user.name "function-builder[bot]"
+          git config user.email "function-builder@users.noreply.github.com"
+          git add platform/functions/functions.yaml
+          git commit -m "pin function-appdatabase image to ${TAG}"
+          git push

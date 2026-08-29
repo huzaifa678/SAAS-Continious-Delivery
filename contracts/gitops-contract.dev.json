@@ -9,5 +9,6 @@
     "airflow":      { "instance": "airflow",      "endpoint": "saas-airflow-db.xxxx.us-east-1.rds.amazonaws.com:5432",      "db_name": "airflow_db",      "username": "airflow_user",      "secret_name": "saas-airflow-db-secret" }
   },
   "redis": { "endpoint": "saas-redis.xxxx.cache.amazonaws.com", "port": 6379, "auth_secret_arn": "arn:aws:secretsmanager:us-east-1:000000000000:secret:saas-redis-auth" },
-  "kafka": { "bootstrap_brokers": "b-1.msk.xxxx:9098,b-2.msk.xxxx:9098" }
+  "kafka": { "bootstrap_brokers": "b-1.msk.xxxx:9098,b-2.msk.xxxx:9098" },
+  "registry": { "account_id": "000000000000", "region": "us-east-1", "url": "000000000000.dkr.ecr.us-east-1.amazonaws.com" }
 }
