@@ -36,7 +36,8 @@ apiGateway:
   port: 9000
   # Secure default: Swagger/OpenAPI off. Only values-dev.yaml sets env: dev.
   env: prod
-  keycloakJWKSURL: "http://keycloak.keycloak.svc.cluster.local:8080/realms/saas/protocol/openid-connect/certs"
+  # keycloakx client-facing Service is keycloak-http on port 80 (was Bitnami keycloak:8080).
+  keycloakJWKSURL: "http://keycloak-http.keycloak.svc.cluster.local:80/realms/saas/protocol/openid-connect/certs"
   livenessProbe:
     path: /healthz/live
     initialDelaySeconds: 10
@@ -68,7 +69,8 @@ opentelemetry-collector:
 
   image:
     repository: otel/opentelemetry-collector
-    tag: latest
+    # Pinned to the chart's appVersion (no floating `latest`).
+    tag: "0.159.0"
 
   config:
     receivers:

@@ -11,6 +11,6 @@ appVersion: "1.0.0"
 # as independent charts from ECR — see ArgoCD Applications.
 dependencies:
   - name: opentelemetry-collector
-    version: 0.100.0
+    version: 0.172.0
     repository: https://open-telemetry.github.io/opentelemetry-helm-charts
     condition: opentelemetry-collector.enabled

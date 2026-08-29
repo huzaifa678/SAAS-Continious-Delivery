@@ -27,7 +27,7 @@ opentelemetry-collector:
 
   image:
     repository: otel/opentelemetry-collector
-    tag: latest
+    tag: "0.159.0"
 
   config:
     exporters:
