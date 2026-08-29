@@ -1,0 +1,33 @@
+---
+replicas: 1
+
+image:
+  repository: ""
+  tag: "dev"
+
+istio:
+  enabled: false
+
+circuitBreaking:
+  maxConnections: 100
+  http1MaxPendingRequests: 1000
+  http2MaxRequests: 1000
+  maxRequestsPerConnection: 100
+  outlierDetection:
+    consecutive5xxErrors: 5
+    interval: "30s"
+    baseEjectionTime: "30s"
+    maxEjectionPercent: 10
+
+# Dev: fast canary, no analysis (no Prometheus dependency in dev path)
+rollout:
+  analysis:
+    enabled: false
+  steps:
+    - setWeight: 50
+    - pause:
+        duration: "10s"
+    - setWeight: 100
+
+keda:
+  enabled: false

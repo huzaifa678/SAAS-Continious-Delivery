@@ -1,0 +1,197 @@
+---
+{{- $svc := "agent-service" }}
+{{- $r := .Values.rollout }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ $svc }}
+  labels:
+    app: {{ $svc }}
+spec:
+  replicas: {{ .Values.replicas }}
+  revisionHistoryLimit: {{ $r.revisionHistoryLimit | default 5 }}
+  selector:
+    matchLabels:
+      app: {{ $svc }}
+  template:
+    metadata:
+      labels:
+        app: {{ $svc }}
+      {{- if .Values.istio.enabled }}
+      annotations:
+        sidecar.istio.io/inject: "true"
+        {{- if .Values.istio.revision }}
+        istio.io/rev: {{ .Values.istio.revision | quote }}
+        {{- end }}
+      {{- end }}
+    spec:
+      containers:
+      - name: {{ $svc }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: Always
+        {{- with .Values.env }}
+        env:
+        {{- range . }}
+        - name: {{ .name }}
+          value: {{ .value | quote }}
+        {{- end }}
+        {{- end }}
+        ports:
+        - containerPort: {{ .Values.port }}
+          name: http
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.livenessProbe.path }}
+            port: {{ .Values.port }}
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          failureThreshold: 3
+          timeoutSeconds: 1
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.readinessProbe.path }}
+            port: {{ .Values.port }}
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          failureThreshold: 3
+          timeoutSeconds: 1
+  strategy:
+    canary:
+      canaryService: {{ $svc }}-canary
+      stableService: {{ $svc }}-stable
+      {{- if .Values.istio.enabled }}
+      trafficRouting:
+        istio:
+          virtualServices:
+          - name: {{ $svc }}
+            routes:
+            - primary
+          destinationRule:
+            name: {{ $svc }}
+            canarySubsetName: canary
+            stableSubsetName: stable
+      {{- end }}
+      maxSurge: {{ $r.maxSurge | default "25%" | quote }}
+      maxUnavailable: {{ $r.maxUnavailable | default 0 }}
+      {{- with $r.analysis }}
+      {{- if .enabled }}
+      analysis:
+        startingStep: {{ .startingStep | default 1 }}
+        templates:
+        {{- range .templates }}
+        - templateName: {{ .templateName }}
+        {{- end }}
+        args:
+        - name: service-name
+          value: {{ $svc }}
+        - name: namespace
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+      {{- end }}
+      {{- end }}
+      steps:
+      {{- range $r.steps }}
+        - {{ toYaml . | nindent 10 | trim }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $svc }}-stable
+  labels:
+    app: {{ $svc }}
+    rollouts-pod-template-hash: stable
+spec:
+  selector:
+    app: {{ $svc }}
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: http
+    name: http
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $svc }}-canary
+  labels:
+    app: {{ $svc }}
+    rollouts-pod-template-hash: canary
+spec:
+  selector:
+    app: {{ $svc }}
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: http
+    name: http
+  type: ClusterIP
+---
+# Backwards-compatible Service name for existing consumers (api-gateway, KEDA, etc.)
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $svc }}
+  labels:
+    app: {{ $svc }}
+spec:
+  selector:
+    app: {{ $svc }}
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: http
+    name: http
+  type: ClusterIP
+{{- if .Values.istio.enabled }}
+{{- $cb := .Values.circuitBreaking | default dict }}
+{{- $od := $cb.outlierDetection | default dict }}
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ $svc }}
+spec:
+  host: {{ $svc }}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: {{ $cb.maxConnections | default 100 }}
+      http:
+        http1MaxPendingRequests: {{ $cb.http1MaxPendingRequests | default 1000 }}
+        http2MaxRequests: {{ $cb.http2MaxRequests | default 1000 }}
+        maxRequestsPerConnection: {{ $cb.maxRequestsPerConnection | default 100 }}
+    outlierDetection:
+      consecutive5xxErrors: {{ $od.consecutive5xxErrors | default 5 }}
+      interval: {{ $od.interval | default "30s" }}
+      baseEjectionTime: {{ $od.baseEjectionTime | default "30s" }}
+      maxEjectionPercent: {{ $od.maxEjectionPercent | default 10 }}
+  subsets:
+  - name: stable
+    labels:
+      app: {{ $svc }}
+  - name: canary
+    labels:
+      app: {{ $svc }}
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ $svc }}
+spec:
+  hosts:
+  - {{ $svc }}
+  http:
+  - name: primary
+    route:
+    - destination:
+        host: {{ $svc }}
+        subset: stable
+      weight: 100
+    - destination:
+        host: {{ $svc }}
+        subset: canary
+      weight: 0
+{{- end }}

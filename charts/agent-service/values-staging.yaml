@@ -1,0 +1,63 @@
+---
+replicas: 2
+
+image:
+  repository: ""
+  tag: "staging"
+
+istio:
+  enabled: true
+  revision: ""
+
+circuitBreaking:
+  maxConnections: 100
+  http1MaxPendingRequests: 1000
+  http2MaxRequests: 1000
+  maxRequestsPerConnection: 100
+  outlierDetection:
+    consecutive5xxErrors: 5
+    interval: "30s"
+    baseEjectionTime: "30s"
+    maxEjectionPercent: 10
+
+# Staging: full canary progression with Prometheus analysis between steps
+rollout:
+  analysis:
+    enabled: true
+    interval: "1m"
+    count: 3
+    failureLimit: 1
+    successRateThreshold: 0.98
+    p95LatencyThresholdMs: 750
+  steps:
+    - setWeight: 20
+    - pause:
+        duration: "1m"
+    - analysis:
+        templates:
+          - templateName: agent-service-success-rate
+          - templateName: agent-service-latency-p95
+    - setWeight: 50
+    - pause:
+        duration: "1m"
+    - analysis:
+        templates:
+          - templateName: agent-service-success-rate
+          - templateName: agent-service-latency-p95
+    - setWeight: 100
+
+keda:
+  enabled: true
+  minReplicaCount: 2
+  maxReplicaCount: 8
+  pollingInterval: 30
+  cooldownPeriod: 300
+  triggers:
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"
+    - type: memory
+      metricType: Utilization
+      metadata:
+        value: "80"

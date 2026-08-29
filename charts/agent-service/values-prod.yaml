@@ -1,0 +1,103 @@
+---
+replicas: 3
+
+image:
+  repository: ""
+  tag: "prod"
+
+istio:
+  enabled: true
+  revision: ""
+
+circuitBreaking:
+  maxConnections: 100
+  http1MaxPendingRequests: 1000
+  http2MaxRequests: 1000
+  maxRequestsPerConnection: 100
+  outlierDetection:
+    consecutive5xxErrors: 5
+    interval: "30s"
+    baseEjectionTime: "30s"
+    maxEjectionPercent: 10
+
+livenessProbe:
+  path: /healthz/live
+  initialDelaySeconds: 60
+  periodSeconds: 10
+
+readinessProbe:
+  path: /healthz/ready
+  initialDelaySeconds: 30
+  periodSeconds: 5
+
+# Prod: long-window canary with strict analysis gates
+rollout:
+  maxSurge: "10%"
+  maxUnavailable: 0
+  analysis:
+    enabled: true
+    interval: "2m"
+    count: 5
+    failureLimit: 1
+    successRateThreshold: 0.995
+    p95LatencyThresholdMs: 500
+  steps:
+    - setWeight: 10
+    - pause:
+        duration: "2m"
+    - analysis:
+        templates:
+          - templateName: agent-service-success-rate
+          - templateName: agent-service-latency-p95
+    - setWeight: 25
+    - pause:
+        duration: "5m"
+    - analysis:
+        templates:
+          - templateName: agent-service-success-rate
+          - templateName: agent-service-latency-p95
+    - setWeight: 50
+    - pause:
+        duration: "5m"
+    - analysis:
+        templates:
+          - templateName: agent-service-success-rate
+          - templateName: agent-service-latency-p95
+    - setWeight: 75
+    - pause:
+        duration: "5m"
+    - setWeight: 100
+
+keda:
+  enabled: true
+  minReplicaCount: 3
+  maxReplicaCount: 20
+  pollingInterval: 15
+  cooldownPeriod: 300
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+            - type: Percent
+              value: 50
+              periodSeconds: 60
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Percent
+              value: 100
+              periodSeconds: 30
+            - type: Pods
+              value: 4
+              periodSeconds: 30
+  triggers:
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "65"
+    - type: memory
+      metricType: Utilization
+      metadata:
+        value: "75"

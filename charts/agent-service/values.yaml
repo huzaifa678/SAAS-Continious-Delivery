@@ -1,0 +1,61 @@
+---
+replicas: 2
+port: 8083
+
+image:
+  repository: ""
+  tag: "latest"
+
+istio:
+  enabled: false
+  revision: ""
+
+rollout:
+  revisionHistoryLimit: 5
+  maxSurge: "25%"
+  maxUnavailable: 0
+  analysis:
+    enabled: false
+    provider: prometheus
+    startingStep: 1
+    interval: "1m"
+    count: 5
+    failureLimit: 2
+    successRateThreshold: 0.99
+    p95LatencyThresholdMs: 500
+    prometheusAddress: "http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090"
+    templates:
+      - templateName: agent-service-success-rate
+      - templateName: agent-service-latency-p95
+  steps:
+    - setWeight: 25
+    - pause:
+        duration: "30s"
+    - setWeight: 50
+    - pause:
+        duration: "30s"
+    - setWeight: 100
+
+livenessProbe:
+  path: /healthz/live
+  initialDelaySeconds: 60
+  periodSeconds: 10
+
+readinessProbe:
+  path: /healthz/ready
+  initialDelaySeconds: 30
+  periodSeconds: 5
+
+keda:
+  enabled: false
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  pollingInterval: 30
+  cooldownPeriod: 300
+  fallback: {}
+  advanced: {}
+  triggers:
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"
