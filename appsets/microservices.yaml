@@ -14,17 +14,18 @@ spec:
               selector:
                 matchExpressions:
                   - { key: env, operator: Exists }
-          # The service catalogue (env-independent).
-          - list:
-              elements:
-                - service: auth-service
-                - service: billing-service
-                - service: subscription-service
-                - service: usage-service
-                - service: agent-service
+          # The service catalogue is DISCOVERED from charts/* — every immediate
+          # subdirectory of charts/ becomes a service. Adding a chart (e.g. the
+          # Backstage new-service scaffolder PR) auto-registers it here with no
+          # edit to this file. `.path.basename` is the chart directory name.
+          - git:
+              repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+              revision: main
+              directories:
+                - path: charts/*
   template:
     metadata:
-      name: '{{.service}}-{{.metadata.labels.env}}'
+      name: '{{.path.basename}}-{{.metadata.labels.env}}'
       namespace: argocd
       annotations:
         argocd.argoproj.io/sync-wave: "2"
@@ -32,13 +33,13 @@ spec:
       project: default
       sources:
         - repoURL: oci://123456789.dkr.ecr.us-east-1.amazonaws.com/helm
-          chart: '{{.service}}'
+          chart: '{{.path.basename}}'
           targetRevision: 0.1.0
           helm:
-            releaseName: '{{.service}}'
+            releaseName: '{{.path.basename}}'
             valueFiles:
-              - '$values/charts/{{.service}}/values.yaml'
-              - '$values/charts/{{.service}}/values-{{.metadata.labels.env}}.yaml'
+              - '$values/charts/{{.path.basename}}/values.yaml'
+              - '$values/charts/{{.path.basename}}/values-{{.metadata.labels.env}}.yaml'
         - repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
           targetRevision: main
           ref: values
@@ -70,12 +71,12 @@ spec:
     {{- if eq .metadata.labels.env "dev" }}
     metadata:
       annotations:
-        argocd-image-updater.argoproj.io/image-list: '{{.service}}=123456789.dkr.ecr.us-east-1.amazonaws.com/{{.service}}'
-        argocd-image-updater.argoproj.io/{{.service}}.update-strategy: newest-build
-        argocd-image-updater.argoproj.io/{{.service}}.allow-tags: 'regexp:^sha-[0-9a-f]{7,40}$'
-        argocd-image-updater.argoproj.io/{{.service}}.helm.image-name: image.repository
-        argocd-image-updater.argoproj.io/{{.service}}.helm.image-tag: image.tag
+        argocd-image-updater.argoproj.io/image-list: '{{.path.basename}}=123456789.dkr.ecr.us-east-1.amazonaws.com/{{.path.basename}}'
+        argocd-image-updater.argoproj.io/{{.path.basename}}.update-strategy: newest-build
+        argocd-image-updater.argoproj.io/{{.path.basename}}.allow-tags: 'regexp:^sha-[0-9a-f]{7,40}$'
+        argocd-image-updater.argoproj.io/{{.path.basename}}.helm.image-name: image.repository
+        argocd-image-updater.argoproj.io/{{.path.basename}}.helm.image-tag: image.tag
         argocd-image-updater.argoproj.io/write-back-method: git:secret:argocd/image-updater-git-creds
-        argocd-image-updater.argoproj.io/write-back-target: 'helmvalues:charts/{{.service}}/values-dev.yaml'
+        argocd-image-updater.argoproj.io/write-back-target: 'helmvalues:charts/{{.path.basename}}/values-dev.yaml'
         argocd-image-updater.argoproj.io/git-branch: main
     {{- end }}
