@@ -1,5 +1,5 @@
-keycloak:
-  externalDatabase:
-    host: keycloak-postgres.keycloak.svc.cluster.local
+keycloakx:
+  database:
+    hostname: keycloak-postgres.keycloak.svc.cluster.local
 inClusterDb:
   enabled: true

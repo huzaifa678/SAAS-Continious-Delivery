@@ -1,10 +1,10 @@
 ---
 apiVersion: v2
 name: keycloak
-description: Keycloak cluster addon (bitnami chart + in-cluster PG / prod gateway)
+description: Keycloak cluster addon (codecentric keycloakx chart — official image; in-cluster PG / prod gateway)
 type: application
 version: 0.1.0
 dependencies:
-  - name: keycloak
-    version: "*"
-    repository: https://charts.bitnami.com/bitnami
+  - name: keycloakx
+    version: "7.3.0"
+    repository: https://codecentric.github.io/helm-charts

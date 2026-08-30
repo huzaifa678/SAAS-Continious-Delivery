@@ -33,7 +33,7 @@ spec:
     name: letsencrypt-keycloak
     kind: ClusterIssuer
   dnsNames:
-    - keycloak.saas.internal
+    - keycloak.freeeasycrypto.com
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -48,7 +48,7 @@ spec:
     - name: https
       port: 443
       protocol: HTTPS
-      hostname: keycloak.saas.internal
+      hostname: keycloak.freeeasycrypto.com
       tls:
         mode: Terminate
         certificateRefs:
@@ -64,10 +64,11 @@ spec:
   parentRefs:
     - name: keycloak-gateway
   hostnames:
-    - keycloak.saas.internal
+    - keycloak.freeeasycrypto.com
   rules:
     - backendRefs:
-        - name: keycloak
+        # keycloakx's client-facing Service (chart fullnameOverride: keycloak).
+        - name: keycloak-http
           port: 80
 ---
 apiVersion: v1

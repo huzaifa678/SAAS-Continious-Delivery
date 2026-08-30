@@ -1,3 +1,3 @@
-keycloak:
-  externalDatabase:
-    host: __HOST__
+keycloakx:
+  database:
+    hostname: __HOST__

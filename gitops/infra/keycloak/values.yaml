@@ -1,14 +1,41 @@
-keycloak:
-  auth:
-    adminUser: admin
-  # Use an external DB (in-cluster Postgres for dev/staging, RDS for prod), not
-  # the chart's bundled postgresql subchart.
-  postgresql:
-    enabled: false
-  externalDatabase:
+keycloakx:
+  fullnameOverride: keycloak
+
+  command:
+    - "/opt/keycloak/bin/kc.sh"
+    - "start"
+    - "--http-enabled=true"
+    - "--hostname-strict=false"
+    - "--health-enabled=true"
+    - "--metrics-enabled=true"
+  proxy:
+    enabled: true
+    mode: forwarded
+  http:
+    relativePath: "/"
+
+  database:
+    vendor: postgres
     port: 5432
     database: keycloak_db
-    user: keycloak_user
+    username: keycloak_user
+    existingSecret: keycloak-postgres-secret
+    existingSecretKey: postgresql-password
+
+  # Bootstrap admin (Keycloak 26 uses KC_BOOTSTRAP_ADMIN_*). Password from a
+  # secret (keycloak-admin-secret/password) — provide it via external-secrets or
+  # manually, the same way keycloak-postgres-secret is provided.
+  extraEnv: |
+    - name: KC_BOOTSTRAP_ADMIN_USERNAME
+      value: admin
+    - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-admin-secret
+          key: password
+
+  service:
+    httpPort: 80
 
 # In-cluster Postgres (templates/postgres.yaml) for non-prod; prod uses RDS.
 inClusterDb:
