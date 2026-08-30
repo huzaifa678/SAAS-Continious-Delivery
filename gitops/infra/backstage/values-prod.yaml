@@ -1,0 +1,10 @@
+---
+image:
+  tag: "prod"
+host: backstage.freeeasycrypto.com
+replicas: 2
+gateway:
+  enabled: true
+resources:
+  requests: { cpu: 250m, memory: 512Mi }
+  limits:   { cpu: "1",  memory: 1Gi }

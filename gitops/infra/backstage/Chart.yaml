@@ -1,0 +1,10 @@
+---
+apiVersion: v2
+name: backstage
+description: >-
+  Backstage developer portal addon. Custom app image (built from the SAAS-IDP
+  repo Dockerfile), external Postgres (saas-backstage-db via external-secrets),
+  Keycloak OIDC, and a prod TLS gateway. No upstream subchart — all local templates.
+type: application
+version: 0.1.0
+appVersion: "1.54.0"

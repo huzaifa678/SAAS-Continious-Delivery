@@ -1,0 +1,7 @@
+---
+image:
+  tag: "staging"
+host: backstage.staging.freeeasycrypto.com
+replicas: 1
+gateway:
+  enabled: true

@@ -1,0 +1,60 @@
+{{- if not .Values.image.repository }}
+{{- fail "backstage: image.repository is required (set it per-env; the image is built from the SAAS-IDP Dockerfile and pushed to ECR)." }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: backstage
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: backstage
+  template:
+    metadata:
+      labels:
+        app: backstage
+    spec:
+      serviceAccountName: backstage
+      # Mounted token is what the Kubernetes plugin uses (localKubectlProxy).
+      automountServiceAccountToken: true
+      containers:
+        - name: backstage
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Matches the SAAS-IDP Dockerfile CMD (base config + prod overlay).
+          args:
+            - "packages/backend"
+            - "--config"
+            - "app-config.yaml"
+            - "--config"
+            - "app-config.production.yaml"
+          ports:
+            - name: http
+              containerPort: 7007
+          envFrom:
+            # POSTGRES_* from the DB ExternalSecret; KEYCLOAK_*, GITHUB_TOKEN,
+            # BACKEND_SECRET, ARGOCD_AUTH_TOKEN from the app ExternalSecret.
+            - secretRef: { name: backstage-db }
+            - secretRef: { name: backstage-app }
+          env:
+            - name: BACKSTAGE_HOST
+              value: {{ .Values.host | quote }}
+            - name: ARGOCD_URL
+              value: {{ .Values.argocd.url | quote }}
+            - name: NODE_ENV
+              value: production
+          readinessProbe:
+            tcpSocket: { port: 7007 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: 7007 }
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

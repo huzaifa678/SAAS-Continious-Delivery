@@ -1,0 +1,22 @@
+image:
+  repository: "123456789.dkr.ecr.us-east-1.amazonaws.com/backstage"
+  tag: ""
+  pullPolicy: IfNotPresent
+
+replicas: 1
+
+host: ""
+
+argocd:
+  url: "https://argocd-server.argocd.svc.cluster.local"
+
+secrets:
+  dbSecret: saas-backstage-db-secret
+  appSecret: backstage-app
+
+resources:
+  requests: { cpu: 100m, memory: 256Mi }
+  limits:   { cpu: 500m, memory: 512Mi }
+
+gateway:
+  enabled: false

@@ -1,0 +1,8 @@
+---
+image:
+  tag: "dev"          # moving tag pushed by SAAS-IDP build-backstage-image
+  pullPolicy: Always  # so a rollout restart picks up a freshly-built dev image
+host: backstage.dev.freeeasycrypto.com
+replicas: 1
+gateway:
+  enabled: true
