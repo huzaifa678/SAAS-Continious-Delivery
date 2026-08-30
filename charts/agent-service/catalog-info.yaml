@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: agent-service
+  description: agent microservice.
+  annotations:
+    github.com/project-slug: huzaifa678/agent-service
+    # Argo CD app names are <service>-<env>; dev shown by default.
+    argocd/app-name: agent-service-dev
+    # Pods carry label app=<service>, in namespace saas-apps (Argo Rollouts).
+    backstage.io/kubernetes-label-selector: app=agent-service
+    backstage.io/kubernetes-namespace: saas-apps
+spec:
+  type: service
+  lifecycle: production
+  owner: platform-team
+  system: saas-services
