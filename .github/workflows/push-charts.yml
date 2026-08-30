@@ -1,0 +1,111 @@
+name: push-charts
+
+# Closes the microservice golden path: when a chart under charts/** changes on
+# main (e.g. the Backstage new-service scaffolder PR is merged), package it and
+# push it to the ECR OCI helm registry that the `microservices` ApplicationSet
+# pulls from (oci://<registry>/helm, chart=<name>, version from Chart.yaml).
+#
+# The chart SOURCE + values live in git; ArgoCD pulls the PACKAGED chart from
+# ECR — so without this step a newly-scaffolded service is never deployable.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'charts/**'
+      - '.github/workflows/push-charts.yml'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  # Work out which chart directories actually changed in this push, so we only
+  # (re)package those — and emit them as a JSON array for the matrix below.
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      charts: ${{ steps.changed.outputs.charts }}
+      any: ${{ steps.changed.outputs.any }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed charts
+        id: changed
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.before }}"
+          if [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            BASE="$(git rev-parse HEAD~1)"
+          fi
+          charts="$(git diff --name-only "$BASE" "${{ github.sha }}" -- 'charts/**' \
+            | cut -d/ -f2 | sort -u | grep -E '.+' || true)"
+          if [ -z "$charts" ]; then
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            echo "charts=[]" >> "$GITHUB_OUTPUT"
+            echo "No chart changes detected."
+          else
+            echo "Changed charts:"; echo "$charts"
+            json="$(printf '%s\n' "$charts" | jq -R . | jq -cs .)"
+            echo "any=true" >> "$GITHUB_OUTPUT"
+            echo "charts=$json" >> "$GITHUB_OUTPUT"
+          fi
+
+  push:
+    needs: detect
+    if: needs.detect.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        chart: ${{ fromJson(needs.detect.outputs.charts) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.15.0
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Package and push ${{ matrix.chart }}
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          CHART: ${{ matrix.chart }}
+        run: |
+          set -euo pipefail
+          if [ ! -f "charts/${CHART}/Chart.yaml" ]; then
+            echo "charts/${CHART}/Chart.yaml not found (chart removed?) — skipping."; exit 0
+          fi
+          VERSION="$(awk '/^version:/{print $2; exit}' "charts/${CHART}/Chart.yaml")"
+          echo "chart=${CHART} version=${VERSION}"
+
+          # helm push creates an artifact in ECR repo `helm/<chart>` tagged <version>.
+          # ECR does not auto-create repositories, so ensure it exists (idempotent).
+          aws ecr describe-repositories --repository-names "helm/${CHART}" >/dev/null 2>&1 \
+            || aws ecr create-repository --repository-name "helm/${CHART}" \
+                 --image-tag-mutability IMMUTABLE >/dev/null
+
+          # Tag immutability: if this exact version is already published, skip
+          # (a chart change without a version bump is a no-op for the registry).
+          if aws ecr describe-images --repository-name "helm/${CHART}" \
+               --image-ids imageTag="${VERSION}" >/dev/null 2>&1; then
+            echo "helm/${CHART}:${VERSION} already in ECR — bump Chart.yaml version to publish a new one. Skipping."
+            exit 0
+          fi
+
+          helm package "charts/${CHART}" --destination /tmp/pkg
+          helm push "/tmp/pkg/${CHART}-${VERSION}.tgz" "oci://${REGISTRY}/helm"
+          echo "pushed oci://${REGISTRY}/helm/${CHART}:${VERSION}"
