@@ -1,0 +1,91 @@
+---
+{{- $svc := "billing-service" }}
+{{- $sec := .Values.security | default dict }}
+{{- $pa := $sec.peerAuthentication | default dict }}
+{{- $ap := $sec.authorizationPolicy | default dict }}
+{{- $np := $sec.networkPolicy | default dict }}
+{{- $allowedNs := $ap.allowedNamespaces | default (list "saas-apps" "istio-system" "monitoring") }}
+{{- $ingressNs := $np.ingressNamespaces | default (list "saas-apps" "istio-system" "monitoring") }}
+{{- if and .Values.istio.enabled ($pa.enabled | default true) }}
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: {{ $svc }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ $svc }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ $svc }}
+  mtls:
+    mode: {{ $pa.mode | default "STRICT" }}
+{{- end }}
+{{- if and .Values.istio.enabled ($ap.enabled | default true) }}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ $svc }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ $svc }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ $svc }}
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            namespaces:
+            {{- range $allowedNs }}
+              - {{ . | quote }}
+            {{- end }}
+{{- end }}
+{{- if $np.enabled | default true }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $svc }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ $svc }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $svc }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values:
+                {{- range $ingressNs }}
+                  - {{ . | quote }}
+                {{- end }}
+  egress:
+    {{- if $np.allowAllEgress | default true }}
+    - {}
+    {{- else }}
+    - to:
+        - namespaceSelector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values:
+                  - "saas-apps"
+                  - "istio-system"
+                  - "kube-system"
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- end }}
+{{- end }}
