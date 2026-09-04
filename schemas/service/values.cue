@@ -16,6 +16,12 @@ package service
 
 	keda!: #Keda
 
+	// Optional service-mesh / network security posture. When absent the chart
+	// defaults apply (STRICT mTLS, namespace-scoped AuthorizationPolicy and a
+	// default-deny NetworkPolicy). The istio-scoped pieces additionally require
+	// istio.enabled=true to render.
+	security?: #Security
+
 	// Optional: when present, the service requests a Postgres database via Crossplane.
 	// Only services that own data need this block (e.g. usage-service).
 	database?: #Database
@@ -46,6 +52,28 @@ package service
 #Istio: {
 	enabled!:  bool
 	revision?: string
+}
+
+#Security: {
+	// PeerAuthentication — enforces the mTLS posture for this workload.
+	// Only rendered when istio.enabled=true.
+	peerAuthentication?: {
+		enabled?: bool
+		mode?:    "STRICT" | "PERMISSIVE" | "DISABLE" | "UNSET"
+	}
+	// AuthorizationPolicy — which source namespaces (mesh identities) may call
+	// this workload. Only rendered when istio.enabled=true.
+	authorizationPolicy?: {
+		enabled?: bool
+		allowedNamespaces?: [...string]
+	}
+	// NetworkPolicy — L3/L4 default-deny for the pod. CNI-native, rendered
+	// regardless of istio so dev also gets segmentation.
+	networkPolicy?: {
+		enabled?: bool
+		ingressNamespaces?: [...string]
+		allowAllEgress?: bool
+	}
 }
 
 #Rollout: {

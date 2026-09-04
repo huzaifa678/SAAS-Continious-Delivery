@@ -414,6 +414,66 @@
       },
       "additionalProperties": false
     },
+    "Security": {
+      "type": "object",
+      "properties": {
+        "peerAuthentication": {
+          "description": "PeerAuthentication — enforces the mTLS posture for this workload.\nOnly rendered when istio.enabled=true.",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "STRICT",
+                "PERMISSIVE",
+                "DISABLE",
+                "UNSET"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "authorizationPolicy": {
+          "description": "AuthorizationPolicy — which source namespaces (mesh identities) may call\nthis workload. Only rendered when istio.enabled=true.",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "allowedNamespaces": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "networkPolicy": {
+          "description": "NetworkPolicy — L3/L4 default-deny for the pod. CNI-native, rendered\nregardless of istio so dev also gets segmentation.",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "ingressNamespaces": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "allowAllEgress": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "Values": {
       "type": "object",
       "required": [
@@ -457,6 +517,9 @@
         },
         "keda": {
           "$ref": "#/$defs/Keda"
+        },
+        "security": {
+          "$ref": "#/$defs/Security"
         },
         "database": {
           "$ref": "#/$defs/Database"
