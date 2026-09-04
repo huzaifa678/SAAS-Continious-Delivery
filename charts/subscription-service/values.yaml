@@ -10,6 +10,24 @@ istio:
   enabled: false
   revision: ""
 
+security:
+  peerAuthentication:
+    enabled: true
+    mode: STRICT
+  authorizationPolicy:
+    enabled: true
+    allowedNamespaces:
+      - saas-apps
+      - istio-system
+      - monitoring
+  networkPolicy:
+    enabled: true
+    ingressNamespaces:
+      - saas-apps
+      - istio-system
+      - monitoring
+    allowAllEgress: true
+
 rollout:
   revisionHistoryLimit: 5
   maxSurge: "25%"
