@@ -7,6 +7,10 @@ package service
 	image!: #Image
 	istio!: #Istio
 
+	// Optional dedicated ServiceAccount (defaults to creating one named after the
+	// service). Its identity is what EKS Pod Identity binds AWS roles to.
+	serviceAccount?: #ServiceAccount
+
 	rollout!: #Rollout
 
 	livenessProbe!:  #Probe
@@ -52,6 +56,16 @@ package service
 #Istio: {
 	enabled!:  bool
 	revision?: string
+}
+
+#ServiceAccount: {
+	// Create a dedicated ServiceAccount for the workload. Required for EKS Pod
+	// Identity (e.g. MSK SASL/IAM access is bound to this SA in 20-data), so the
+	// pod stops running as the namespace `default` SA.
+	create?: bool
+	// Defaults to the service name when empty. Must match the service_account in
+	// the infra kafka_clients map for Pod Identity to attach.
+	name?: string
 }
 
 #Security: {
