@@ -36,3 +36,9 @@ keda:
 env:
   - name: SPRINGDOC_ENABLED
     value: "true"
+
+# Provision the DB and run Liquibase migrations (PreSync hook) in dev.
+database:
+  enabled: true
+  migrations:
+    enabled: true
