@@ -10,6 +10,10 @@ istio:
   enabled: false
   revision: ""
 
+serviceAccount:
+  create: true
+  name: ""   # defaults to the service name; must match infra kafka_clients SA
+
 security:
   peerAuthentication:
     enabled: true

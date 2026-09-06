@@ -474,6 +474,20 @@
       },
       "additionalProperties": false
     },
+    "ServiceAccount": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "description": "Create a dedicated ServiceAccount for the workload. Required for EKS Pod\nIdentity (e.g. MSK SASL/IAM access is bound to this SA in 20-data), so the\npod stops running as the namespace `default` SA.",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Defaults to the service name when empty. Must match the service_account in\nthe infra kafka_clients map for Pod Identity to attach.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
     "Values": {
       "type": "object",
       "required": [
@@ -502,6 +516,9 @@
         },
         "istio": {
           "$ref": "#/$defs/Istio"
+        },
+        "serviceAccount": {
+          "$ref": "#/$defs/ServiceAccount"
         },
         "rollout": {
           "$ref": "#/$defs/Rollout"
