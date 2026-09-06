@@ -1,0 +1,30 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+commonLabels:
+  environment: prod
+
+patches:
+  - target: { kind: DaemonSet, name: prometheus-stack-prometheus-node-exporter }
+    patch: |-
+      - op: add
+        path: /metadata/annotations/policy.saas.io~1allow-host-access
+        value: "true"
+  - target: { kind: Deployment, name: prometheus-stack-grafana }
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: prometheus-stack-grafana
+      spec:
+        template:
+          spec:
+            containers:
+              - name: grafana
+                resources:
+                  requests: { cpu: 200m, memory: 256Mi }
+                  limits: { cpu: 500m, memory: 512Mi }

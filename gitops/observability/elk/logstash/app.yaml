@@ -1,0 +1,4 @@
+# Git-files generator config for the flattened observability ApplicationSet.
+# syncWave 1 so Logstash starts after Elasticsearch (syncWave 0) is up.
+namespace: logging
+syncWave: "1"
