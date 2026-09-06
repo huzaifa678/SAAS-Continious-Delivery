@@ -26,8 +26,16 @@ opentelemetry-collector:
   enabled: true
 
   image:
-    repository: otel/opentelemetry-collector
+    repository: otel/opentelemetry-collector-contrib
     tag: "0.159.0"
+
+  serviceAccount:
+    create: true
+    name: otel-collector
+
+  extraEnvs:
+    - name: KAFKA_BOOTSTRAP_SERVERS
+      value: BOOTSTRAP_BROKERS
 
   config:
     exporters:
@@ -35,13 +43,19 @@ opentelemetry-collector:
         endpoint: http://monitoring.svc.cluster.local:8200
         tls:
           insecure: true
-      elasticsearch:
-        endpoints: ["http://elasticsearch:9200"]
-        logs_index: "otel-logs"
-        tls:
-          insecure: true
-      otlphttp/logstash:
-        endpoint: http://logstash:5000
+      # Producer only: logs are buffered to Kafka and drained to Elasticsearch by
+      # the Logstash addon (gitops/observability/elk/logstash). The previous
+      # direct `elasticsearch` and `otlphttp/logstash:5000` exporters are gone —
+      # the latter pointed at a Logstash that was never deployed.
+      kafka/logs:
+        brokers: ["${env:KAFKA_BOOTSTRAP_SERVERS}"]
+        topic: otel-logs
+        encoding: otlp_json
+        auth:
+          sasl:
+            mechanism: AWS_MSK_IAM
+          tls:
+            insecure: false
       prometheus:
         endpoint: "0.0.0.0:8889"
     service:
@@ -57,4 +71,4 @@ opentelemetry-collector:
         logs:
           receivers: [otlp]
           processors: [resource, batch]
-          exporters: [elasticsearch, otlphttp/logstash]
+          exporters: [kafka/logs]
