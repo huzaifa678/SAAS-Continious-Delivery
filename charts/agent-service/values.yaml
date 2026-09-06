@@ -81,3 +81,25 @@ keda:
       metricType: Utilization
       metadata:
         value: "70"
+
+# Crossplane-managed Postgres + Liquibase migrations.
+# PREREQUISITE: `enabled: true` needs an `rds-agent` ProviderConfig in the Terraform
+# gitops_contract (saas-services-infra) — unlike billing/usage/subscription, no rds-agent
+# instance exists yet, so this stays disabled until that upstream instance is provisioned.
+database:
+  enabled: false
+  instance: agent            # maps to Crossplane ProviderConfig `rds-agent`
+  databaseName: agent_db
+  owner: agent_app
+  extensions:
+    - vector                 # pgvector, for conversation_embeddings (RAG)
+  # Liquibase runs as an Argo CD PreSync hook (templates/db-migration.yaml), migrating the
+  # DB before the new Rollout starts. Changelog: charts/agent-service/migrations/changelog.sql.
+  migrations:
+    enabled: false
+    image: liquibase/liquibase:4.31.0
+    sslmode: require         # RDS enforces TLS; use "disable" only for a non-TLS local DB
+    backoffLimit: 3
+    activeDeadlineSeconds: 600
+    ttlSecondsAfterFinished: 1800
+    # secretName: agent-service-db   # defaults to <svc>-db from the AppDatabase claim
