@@ -26,10 +26,29 @@ opentelemetry-collector:
   enabled: true
 
   image:
-    repository: otel/opentelemetry-collector
+    repository: otel/opentelemetry-collector-contrib
     tag: "0.159.0"
 
+  serviceAccount:
+    create: true
+    name: otel-collector
+
+  extraEnvs:
+    - name: KAFKA_BOOTSTRAP_SERVERS
+      value: BOOTSTRAP_BROKERS
+
   config:
+    receivers:
+      kafka/logs:
+        brokers: ["${env:KAFKA_BOOTSTRAP_SERVERS}"]
+        topic: otel-logs
+        encoding: otlp_json
+        group_id: otel-logs-loki
+        auth:
+          sasl:
+            mechanism: AWS_MSK_IAM
+          tls:
+            insecure: false
     exporters:
       otlp/tempo:
         endpoint: tempo:4317
@@ -39,6 +58,15 @@ opentelemetry-collector:
         endpoint: http://monitoring.svc.cluster.local:3100/otlp
         tls:
           insecure: true
+      kafka/logs:
+        brokers: ["${env:KAFKA_BOOTSTRAP_SERVERS}"]
+        topic: otel-logs
+        encoding: otlp_json
+        auth:
+          sasl:
+            mechanism: AWS_MSK_IAM
+          tls:
+            insecure: false
       debug:
         verbosity: detailed
       prometheus:
@@ -53,7 +81,15 @@ opentelemetry-collector:
           receivers: [otlp]
           processors: [resource, batch]
           exporters: [prometheus]
+        # Producer: OTLP in -> Kafka buffer. Named `logs` (not `logs/produce`) so
+        # it overrides the subchart's default logs pipeline rather than adding a
+        # stray one alongside it.
         logs:
           receivers: [otlp]
           processors: [resource, batch]
+          exporters: [kafka/logs]
+        # Consumer (dev): Kafka buffer -> Loki.
+        logs/consume:
+          receivers: [kafka/logs]
+          processors: [batch]
           exporters: [debug, otlphttp/loki]

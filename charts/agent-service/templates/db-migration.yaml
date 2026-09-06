@@ -1,0 +1,101 @@
+{{- if and .Values.database.enabled .Values.database.migrations.enabled }}
+{{- $svc := "agent-service" }}
+{{- $m := .Values.database.migrations }}
+{{- $secret := $m.secretName | default (printf "%s-db" $svc) }}
+---
+# Liquibase changelog delivered as a ConfigMap. Rendered from charts/<svc>/migrations so
+# migrations are versioned in git alongside the chart. PreSync hook, applied before the Job.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $svc }}-db-migrations
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ $svc }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  changelog.sql: |
+{{ .Files.Get "migrations/changelog.sql" | indent 4 }}
+---
+# Argo CD PreSync hook: runs Liquibase to migrate the database BEFORE the new Rollout is
+# applied, so the app never starts against an un-migrated schema. Liquibase is idempotent
+# (tracks applied changeSets in DATABASECHANGELOG), so re-running each sync is a no-op.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $svc }}-db-migrate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ $svc }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    # Replace the previous Job each sync so it re-runs; keep it after success for logs.
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: {{ $m.backoffLimit | default 3 }}
+  activeDeadlineSeconds: {{ $m.activeDeadlineSeconds | default 600 }}
+  ttlSecondsAfterFinished: {{ $m.ttlSecondsAfterFinished | default 1800 }}
+  template:
+    metadata:
+      labels:
+        app: {{ $svc }}
+        job: db-migrate
+      annotations:
+        # A mesh sidecar would never exit and the Job would hang; keep this Pod out of it.
+        sidecar.istio.io/inject: "false"
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ (.Values.serviceAccount | default dict).name | default $svc }}
+      containers:
+        - name: liquibase
+          image: {{ $m.image | default "liquibase/liquibase:4.31.0" }}
+          imagePullPolicy: IfNotPresent
+          command: ["liquibase", "update"]
+          env:
+            - name: DB_HOST
+              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: host } }
+            - name: DB_PORT
+              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: port } }
+            - name: DB_NAME
+              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: db } }
+            - name: LIQUIBASE_COMMAND_USERNAME
+              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: user } }
+            - name: LIQUIBASE_COMMAND_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: password } }
+            # k8s substitutes $(DB_*) from the vars declared above.
+            - name: LIQUIBASE_COMMAND_URL
+              value: "jdbc:postgresql://$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode={{ $m.sslmode | default "require" }}"
+            - name: LIQUIBASE_COMMAND_CHANGELOG_FILE
+              value: changelog.sql
+            - name: LIQUIBASE_SEARCH_PATH
+              value: /liquibase/changelog
+            - name: LIQUIBASE_HEADLESS
+              value: "true"
+          volumeMounts:
+            - name: changelog
+              mountPath: /liquibase/changelog
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+      volumes:
+        - name: changelog
+          configMap:
+            name: {{ $svc }}-db-migrations
+{{- end }}

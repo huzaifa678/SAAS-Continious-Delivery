@@ -1,0 +1,25 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+commonLabels:
+  environment: prod
+
+patches:
+  - target: { kind: StatefulSet, name: logstash-logstash }
+    patch: |-
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: logstash-logstash
+      spec:
+        template:
+          spec:
+            containers:
+              - name: logstash
+                resources:
+                  requests: { cpu: 500m, memory: 2Gi }
+                  limits: { cpu: 1000m, memory: 4Gi }

@@ -26,6 +26,7 @@ spec:
         {{- end }}
       {{- end }}
     spec:
+      serviceAccountName: {{ (.Values.serviceAccount | default dict).name | default $svc }}
       containers:
       - name: {{ $svc }}
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}

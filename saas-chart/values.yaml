@@ -68,9 +68,25 @@ opentelemetry-collector:
   mode: daemonset
 
   image:
-    repository: otel/opentelemetry-collector
+    # contrib distro is required: the core `otel/opentelemetry-collector` image
+    # does NOT ship the kafka exporter/receiver (nor the elasticsearch exporter
+    # used in staging/prod). Everything else stays as before.
+    repository: otel/opentelemetry-collector-contrib
     # Pinned to the chart's appVersion (no floating `latest`).
     tag: "0.159.0"
+
+  # EKS Pod Identity grants MSK SASL/IAM access — no role-arn annotation. The
+  # binding is defined in Terraform (layers/20-data kafka_clients "otel-collector",
+  # namespace saas-apps / SA otel-collector) via aws_eks_pod_identity_association.
+  serviceAccount:
+    create: true
+    name: otel-collector
+
+  # Broker list comes from the gitops contract (kafka.bootstrap_brokers_sasl_iam),
+  # same BOOTSTRAP_BROKERS placeholder used by infra/base/usage-etl-argo-keda.
+  extraEnvs:
+    - name: KAFKA_BOOTSTRAP_SERVERS
+      value: BOOTSTRAP_BROKERS
 
   config:
     receivers:
@@ -80,6 +96,21 @@ opentelemetry-collector:
             endpoint: 0.0.0.0:4317
           http:
             endpoint: 0.0.0.0:4318
+      # Consumer side (dev): read the buffered logs back out of Kafka and ship
+      # them to Loki. staging/prod use Logstash for this instead (see the elk
+      # logstash addon), so they do not enable this receiver.
+      kafka/logs:
+        brokers: ["${env:KAFKA_BOOTSTRAP_SERVERS}"]
+        topic: otel-logs
+        # otlp_json (not otlp_proto) so the same topic can also be consumed by
+        # Logstash's json codec in staging/prod.
+        encoding: otlp_json
+        group_id: otel-logs-loki
+        auth:
+          sasl:
+            mechanism: AWS_MSK_IAM
+          tls:
+            insecure: false
 
     processors:
       batch: {}
@@ -98,6 +129,17 @@ opentelemetry-collector:
         endpoint: http://loki:3100/otlp
         tls:
           insecure: true
+      # Producer side: buffer all logs onto the MSK topic. Every service already
+      # emits OTLP, so this single change buffers logs for all of them at once.
+      kafka/logs:
+        brokers: ["${env:KAFKA_BOOTSTRAP_SERVERS}"]
+        topic: otel-logs
+        encoding: otlp_json
+        auth:
+          sasl:
+            mechanism: AWS_MSK_IAM
+          tls:
+            insecure: false
       debug:
         verbosity: detailed
       prometheus:
@@ -113,7 +155,15 @@ opentelemetry-collector:
           receivers: [otlp]
           processors: [resource, batch]
           exporters: [prometheus]
+        # Producer: OTLP in -> Kafka buffer. Named `logs` (not `logs/produce`) so
+        # it overrides the subchart's default logs pipeline rather than adding a
+        # stray one alongside it.
         logs:
           receivers: [otlp]
           processors: [resource, batch]
+          exporters: [kafka/logs]
+        # Consumer (dev): Kafka buffer -> Loki.
+        logs/consume:
+          receivers: [kafka/logs]
+          processors: [batch]
           exporters: [debug, otlphttp/loki]

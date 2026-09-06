@@ -2,6 +2,18 @@
 # ALTERNATIVE (Option B) — mutually exclusive with the Airflow app.
 # Ingest as a long-running Kafka consumer, scaled to zero by KEDA on consumer
 # lag. Runs the same pipes-and-filters code as the Airflow DAG (etl.ingest).
+# Dedicated ServiceAccount: EKS Pod Identity binds the MSK IAM role
+# (module msk_client_identity["usage-ingest"], namespace usage-etl, in the infra
+# 20-data layer) to this SA, so both the consumer and the KEDA scaler authenticate
+# to MSK with SASL/IAM — no static credentials.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: usage-ingest
+  namespace: usage-etl
+  labels:
+    app: usage-ingest
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,6 +31,7 @@ spec:
       labels:
         app: usage-ingest
     spec:
+      serviceAccountName: usage-ingest
       containers:
         - name: ingest
           # Overlay / ArgoCD Image Updater sets the real ECR tag.
@@ -32,6 +45,18 @@ spec:
           resources:
             requests: { cpu: "100m", memory: "256Mi" }
             limits: { cpu: "500m", memory: "512Mi" }
+---
+# KEDA authenticates to MSK via the workload's Pod Identity (usage-ingest SA).
+# identityOwner: workload on the trigger tells KEDA to assume that SA's role
+# rather than the keda-operator's own identity.
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: usage-ingest-msk-iam
+  namespace: usage-etl
+spec:
+  podIdentity:
+    provider: aws
 ---
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
@@ -47,9 +72,15 @@ spec:
   triggers:
     - type: kafka
       metadata:
-        bootstrapServers: BOOTSTRAP_BROKERS   # from gitops contract (kafka.bootstrap_brokers)
+        bootstrapServers: BOOTSTRAP_BROKERS   # from gitops contract (kafka.bootstrap_brokers_sasl_iam)
         consumerGroup: usage-service
         topic: billing.usage-charge.created
         lagThreshold: "50"
         offsetResetPolicy: latest
-      # MSK is SASL/IAM — reference a TriggerAuthentication here in a real deploy.
+        # MSK SASL/IAM over TLS — matches the cluster's enforced auth posture.
+        sasl: aws_msk_iam
+        tls: enable
+        awsRegion: us-east-1
+        identityOwner: workload
+      authenticationRef:
+        name: usage-ingest-msk-iam

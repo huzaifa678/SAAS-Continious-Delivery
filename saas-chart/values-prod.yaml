@@ -19,4 +19,42 @@ apiGateway:
     previewWeight: 0
 
 opentelemetry-collector:
-  enabled: false
+  enabled: true
+
+  image:
+    repository: otel/opentelemetry-collector-contrib
+    tag: "0.159.0"
+
+  serviceAccount:
+    create: true
+    name: otel-collector
+
+  extraEnvs:
+    - name: KAFKA_BOOTSTRAP_SERVERS
+      value: BOOTSTRAP_BROKERS
+
+  config:
+    exporters:
+      # Producer only: logs are buffered to Kafka and drained to Elasticsearch by
+      # the Logstash addon (gitops/observability/elk/logstash).
+      kafka/logs:
+        brokers: ["${env:KAFKA_BOOTSTRAP_SERVERS}"]
+        topic: otel-logs
+        encoding: otlp_json
+        auth:
+          sasl:
+            mechanism: AWS_MSK_IAM
+          tls:
+            insecure: false
+      prometheus:
+        endpoint: "0.0.0.0:8889"
+    service:
+      pipelines:
+        metrics:
+          receivers: [otlp]
+          processors: [resource, batch]
+          exporters: [prometheus]
+        logs:
+          receivers: [otlp]
+          processors: [resource, batch]
+          exporters: [kafka/logs]

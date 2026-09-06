@@ -81,3 +81,22 @@ keda:
       metricType: Utilization
       metadata:
         value: "70"
+
+# Crossplane-managed Postgres + Liquibase migrations. Enabled per-env in values-<env>.yaml
+# (the rds-billing ProviderConfig already exists).
+database:
+  enabled: false
+  instance: billing          # maps to Crossplane ProviderConfig `rds-billing`
+  databaseName: billing_db
+  owner: billing_app
+  extensions: []
+  # Liquibase runs as an Argo CD PreSync hook (templates/db-migration.yaml), migrating the
+  # DB before the new Rollout starts. Changelog: charts/billing-service/migrations/changelog.sql.
+  migrations:
+    enabled: false
+    image: liquibase/liquibase:4.31.0
+    sslmode: require         # RDS enforces TLS; use "disable" only for a non-TLS local DB
+    backoffLimit: 3
+    activeDeadlineSeconds: 600
+    ttlSecondsAfterFinished: 1800
+    # secretName: billing-service-db   # defaults to <svc>-db from the AppDatabase claim

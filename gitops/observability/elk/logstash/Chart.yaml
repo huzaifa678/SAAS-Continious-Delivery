@@ -1,0 +1,10 @@
+---
+apiVersion: v2
+name: logstash
+description: logstash observability addon — drains the otel-logs Kafka buffer into Elasticsearch
+type: application
+version: 0.1.0
+dependencies:
+  - name: logstash
+    version: "8.5.1"
+    repository: https://helm.elastic.co

@@ -101,3 +101,9 @@ keda:
       metricType: Utilization
       metadata:
         value: "75"
+
+# Provision the DB and run Liquibase migrations (PreSync hook).
+database:
+  enabled: true
+  migrations:
+    enabled: true

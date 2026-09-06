@@ -1,0 +1,57 @@
+logstash:
+  # Custom image: the stock elastic/logstash image cannot talk to MSK with
+  # SASL/IAM — it needs the aws-msk-iam-auth uber-jar on the Logstash classpath
+  # (logstash-core/lib/jars). Build the image from the Dockerfile in this dir and
+  # push it to the platform registry; the tag is filled from the gitops contract.
+  image: LOGSTASH_MSK_IMAGE
+  imageTag: LOGSTASH_MSK_TAG
+
+  replicas: 1
+
+  resources:
+    requests: { cpu: 200m, memory: 1Gi }
+    limits:   { cpu: 500m, memory: 2Gi }
+
+  # EKS Pod Identity signs the MSK/IAM SASL handshake — no role-arn annotation.
+  # The binding is defined in Terraform (layers/20-data kafka_clients "logstash",
+  # namespace logging / SA logstash-otel) via aws_eks_pod_identity_association.
+  rbac:
+    create: true
+    serviceAccountName: "logstash-otel"
+
+  extraEnvs:
+    - name: KAFKA_BOOTSTRAP_SERVERS
+      value: BOOTSTRAP_BROKERS
+    - name: AWS_REGION
+      value: us-east-1
+
+  logstashConfig:
+    logstash.yml: |
+      http.host: 0.0.0.0
+      pipeline.ecs_compatibility: disabled
+
+  logstashPipeline:
+    logstash.conf: |
+      input {
+        kafka {
+          bootstrap_servers => "${KAFKA_BOOTSTRAP_SERVERS}"
+          topics => ["otel-logs"]
+          group_id => "logstash-otel-logs"
+          client_id => "logstash-otel-logs"
+          # The collector kafka exporter writes OTLP-JSON, so decode as json.
+          codec => json
+          # MSK SASL/IAM over TLS — matches the cluster's enforced auth posture
+          # (same as infra/base/usage-etl-argo-keda/ingest.yaml).
+          security_protocol => "SASL_SSL"
+          sasl_mechanism => "AWS_MSK_IAM"
+          sasl_jaas_config => "software.amazon.msk.auth.iam.IAMLoginModule required;"
+          sasl_client_callback_handler_class => "software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+          decorate_events => "basic"
+        }
+      }
+      output {
+        elasticsearch {
+          hosts => ["http://elasticsearch-master:9200"]
+          index => "otel-logs-%{+YYYY.MM.dd}"
+        }
+      }

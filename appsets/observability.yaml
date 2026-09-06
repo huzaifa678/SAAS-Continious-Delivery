@@ -12,7 +12,7 @@ spec:
           - clusters:
               selector:
                 matchLabels:
-                  observability: grafana
+                  stack-grafana: "true"
           - git:
               repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
               revision: main
@@ -23,7 +23,7 @@ spec:
           - clusters:
               selector:
                 matchLabels:
-                  observability: elk
+                  stack-elk: "true"
           - git:
               repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
               revision: main
