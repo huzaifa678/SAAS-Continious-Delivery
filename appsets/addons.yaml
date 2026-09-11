@@ -10,6 +10,8 @@
 #
 # Per-env config: values-<env>.yaml (hand-authored) + values-<env>.generated.yaml
 # (rendered from the Terraform gitops contract by scripts/render_gitops.py).
+# Per-env MEMBERSHIP: an addon ships either app.yaml (all envs) or app.<env>.yaml
+# (that env only) — see the files: globs below.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -28,7 +30,17 @@ spec:
               repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
               revision: main
               files:
+                # Membership schemes (an addon uses EXACTLY ONE, never both, or the
+                # two produce the same Application name `<addon>-<env>` and collide):
+                #   app.yaml          -> universal: deployed to every env.
+                #   app.<env>.yaml    -> per-env: deployed only to that env. The glob
+                #                        is parameterized by the cluster's env (the
+                #                        matrix feeds the clusters generator's output
+                #                        into this git generator), so app.prod.yaml
+                #                        pairs only with the prod cluster. Use this for
+                #                        conditional addons (e.g. an eso-only addon).
                 - path: gitops/infra/*/app.yaml
+                - path: gitops/infra/*/app.{{.metadata.labels.env}}.yaml
   template:
     metadata:
       # {{.path.basename}} is the addon directory / chart name (e.g. cert-manager).
@@ -48,6 +60,7 @@ spec:
             - values.yaml
             - 'values-{{.metadata.labels.env}}.yaml'
             - 'values-{{.metadata.labels.env}}.generated.yaml'
+            - 'values-{{.metadata.labels.env}}.eso.yaml'
           # Helm output post-rendered by this Kustomize overlay before apply.
           postRenderer:
             kustomize:
