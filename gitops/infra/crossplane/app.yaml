@@ -1,3 +1,0 @@
-# Git-files generator config for the flattened addons ApplicationSet.
-namespace: crossplane-system
-syncWave: "-1"

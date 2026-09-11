@@ -1,5 +1,15 @@
-# settings.clusterName / settings.interruptionQueue are injected per env from the
-# Terraform gitops contract into values-<env>.generated.yaml (render_gitops.py).
+# Contract delivery (docs/gitops-contract-delivery-modes.md):
+#   render mode -> settings.clusterName / settings.interruptionQueue are injected
+#                  per env into values-<env>.generated.yaml (render_gitops.py).
+#   eso mode    -> gitopsContract.eso.enabled=true (values-<env>.eso.yaml) creates
+#                  the karpenter-contract ExternalSecret and feeds CLUSTER_NAME /
+#                  INTERRUPTION_QUEUE via karpenter.controller.env instead.
+# Default off so this base is render-mode-safe.
+gitopsContract:
+  eso:
+    enabled: false
+    secretStore: aws-secrets-manager
+
 karpenter:
   controller:
     resources:

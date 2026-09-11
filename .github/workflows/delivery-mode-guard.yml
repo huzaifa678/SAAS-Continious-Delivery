@@ -1,0 +1,26 @@
+name: delivery-mode-guard
+
+# Enforces that each environment uses exactly one GitOps-contract delivery mode
+# (render XOR eso). See docs/gitops-contract-delivery-modes.md.
+
+on:
+  pull_request:
+    paths:
+      - "contracts/delivery-mode.*"
+      - "gitops/infra/**"
+      - "infra/overlays/**"
+      - "scripts/check-delivery-mode.py"
+      - ".github/workflows/delivery-mode-guard.yml"
+  push:
+    branches: [main]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check delivery modes are mutually exclusive
+        run: python3 scripts/check-delivery-mode.py

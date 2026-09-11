@@ -401,6 +401,16 @@ contract by `scripts/render_gitops.py` — karpenter clusterName/queue, keycloak
 prod DB host — loaded with `ignoreMissingValueFiles`). The ArgoCD `helm_release`
 stays in Terraform as the bootstrap.
 
+The cluster-identity values (karpenter clusterName/queue, keycloak prod DB host)
+have **two mutually-exclusive delivery modes** per env, chosen in
+`contracts/delivery-mode.<env>` and enforced by `scripts/check-delivery-mode.py`
+(the `delivery-mode-guard` workflow): `render` (the `*.generated.yaml` above) or
+`eso`, which drops them and instead materializes the contract at runtime via
+External Secrets (`values-<env>.eso.yaml`). Flip with the `switch-delivery-mode`
+workflow (or `scripts/set-delivery-mode.py`) — it opens a PR, no hand-editing.
+provider-sql stays contract-generated in both modes (its creds already use
+External Secrets). See [docs/gitops-contract-delivery-modes.md](docs/gitops-contract-delivery-modes.md).
+
 The `post-renderer/infra/<addon>/overlays/<env>` overlays don't just relabel —
 each carries a **genuine per-env patch** tuned to that chart: the primary
 workload's resource tier scales `dev` (¼) → `staging` (½) → `prod` (full), the

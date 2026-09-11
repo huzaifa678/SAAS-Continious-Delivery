@@ -1,4 +1,0 @@
-# Git-files generator config for the flattened addons ApplicationSet.
-# syncWave 2: after external-secrets (ClusterSecretStore) + keycloak.
-namespace: backstage
-syncWave: "2"
