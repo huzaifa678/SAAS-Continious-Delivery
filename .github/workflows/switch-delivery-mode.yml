@@ -1,0 +1,90 @@
+name: switch-delivery-mode
+
+# Self-service switch of an environment's GitOps-contract delivery mode
+# (render <-> eso). Mutates the repo deterministically via
+# scripts/set-delivery-mode.py and opens a PR.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options: [dev, staging, prod]
+      mode:
+        description: "Delivery mode to switch to"
+        required: true
+        type: choice
+        options: [render, eso]
+
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  switch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Flip delivery mode
+        env:
+          ENV: ${{ inputs.environment }}
+          MODE: ${{ inputs.mode }}
+        run: python3 scripts/set-delivery-mode.py --env "$ENV" --mode "$MODE"
+
+      # eso -> render: the karpenter/keycloak values-<env>.generated.yaml were
+      # removed when the env last went eso, so re-create them from the contract
+      # here — otherwise the render-mode env would be missing its cluster identity.
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: ${{ inputs.mode == 'render' }}
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Regenerate render-mode values from the contract
+        if: ${{ inputs.mode == 'render' }}
+        env:
+          ENV: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          mkdir -p contracts
+          contract="contracts/gitops-contract.${ENV}.json"
+          aws ssm get-parameter \
+            --name "/saas/${ENV}/gitops-contract" \
+            --with-decryption --query Parameter.Value --output text > "$contract"
+          python3 scripts/render_gitops.py --contract "$contract" \
+            --karpenter-out "gitops/infra/karpenter/values-${ENV}.generated.yaml"
+          if [ "$ENV" = "prod" ]; then
+            python3 scripts/render_gitops.py --contract "$contract" \
+              --keycloak-out "gitops/infra/keycloak/values-prod.generated.yaml"
+          fi
+
+      - name: Re-validate guard rail
+        run: python3 scripts/check-delivery-mode.py
+
+      - name: Open pull request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: switch-delivery-mode/${{ inputs.environment }}-${{ inputs.mode }}
+          delete-branch: true
+          title: "Switch ${{ inputs.environment }} GitOps delivery to ${{ inputs.mode }} mode"
+          commit-message: "switch ${{ inputs.environment }} delivery mode to ${{ inputs.mode }}"
+          body: |
+            Automated by the `switch-delivery-mode` workflow.
+
+            - **Environment:** `${{ inputs.environment }}`
+            - **Mode:** `${{ inputs.mode }}`
+
+            Files were mutated by `scripts/set-delivery-mode.py` and validated by
+            `scripts/check-delivery-mode.py`. The `delivery-mode-guard` check runs
+            on this PR. Review the diff and merge to apply via ArgoCD.
+
+            See `docs/gitops-contract-delivery-modes.md`.
+          labels: gitops, delivery-mode
