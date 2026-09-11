@@ -1,0 +1,6 @@
+# Git-files generator config for the flattened addons ApplicationSet.
+# Per-env membership file (one per env, see appsets/addons.yaml). This addon
+# runs in all envs; split into app.<env>.yaml so app-level settings (namespace,
+# syncWave, or membership) can diverge per env without touching the others.
+namespace: nginx-gateway
+syncWave: "-1"

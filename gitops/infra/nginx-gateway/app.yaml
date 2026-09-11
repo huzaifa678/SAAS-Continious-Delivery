@@ -1,3 +1,0 @@
-# Git-files generator config for the flattened addons ApplicationSet.
-namespace: nginx-gateway
-syncWave: "-1"

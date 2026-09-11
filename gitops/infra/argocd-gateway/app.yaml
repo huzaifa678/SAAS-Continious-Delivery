@@ -1,4 +1,0 @@
-# Git-files generator config for the flattened addons ApplicationSet.
-# Syncs after cert-manager + nginx-gateway (issuer + gatewayclass).
-namespace: argocd
-syncWave: "2"
