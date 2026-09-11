@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Render GitOps manifests from the Terraform gitops_contract.
 
+This is the `render` delivery mode. The alternative `eso` mode delivers the same
+contract values via External Secrets at runtime instead of generated manifests;
+the two are mutually exclusive per environment and guarded by
+scripts/check-delivery-mode.py. See docs/gitops-contract-delivery-modes.md.
+
 The contract (see saas-services-infra/docs/gitops-contract.md) is the single
 source of truth for cluster identity and which RDS instances exist / which
 Secrets Manager secret holds each one's master credentials. The output shapes
