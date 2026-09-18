@@ -51,11 +51,13 @@ while IFS= read -r chart; do
   dir="$(dirname "${chart}")"           # gitops/infra/<addon> | gitops/observability/<stack>/<comp>
   rel="${dir#gitops/}"
   addon="$(basename "${dir}")"
-  ns="$(awk '/^namespace:/{print $2}' "${dir}/app.yaml")"
   prbase="post-renderer/${rel}"
   for ov in "${prbase}"/overlays/*/; do
     [[ -d "${ov}" ]] || continue
     env="$(basename "${ov}")"
+    app="${dir}/app.${env}.yaml"
+    [[ -f "${app}" ]] || app="${dir}/app.yaml"
+    ns="$(awk '/^namespace:/{print $2}' "${app}")"
     tag="${rel//\//-}-${env}"
     pr="${WORK}/gitops-${tag}"
     cp -r "${prbase}" "${pr}"
