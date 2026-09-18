@@ -27,6 +27,8 @@ services:
     name: subscription-service
   billing:
     name: billing-service
+  agent:
+    name: agent-service
 
 image:
   apiGateway: ""

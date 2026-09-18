@@ -44,6 +44,8 @@ spec:
           value: "http://{{ $.Values.services.subscription.name }}.{{ $.Release.Namespace }}.svc.cluster.local"
         - name: GATEWAY_SERVICES_BILLING_URL
           value: "http://{{ $.Values.services.billing.name }}.{{ $.Release.Namespace }}.svc.cluster.local"
+        - name: GATEWAY_SERVICES_AGENT_URL
+          value: "http://{{ $.Values.services.agent.name }}.{{ $.Release.Namespace }}.svc.cluster.local"
         - name: GATEWAY_APP_PORT
           value: {{ $.Values.apiGateway.port | quote }}
         - name: GATEWAY_KEYCLOAK_JWKSURL
