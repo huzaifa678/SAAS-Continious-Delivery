@@ -1,0 +1,102 @@
+---
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xappcaches.platform.saas.example
+spec:
+  group: platform.saas.example
+  names:
+    kind: XAppCache
+    plural: xappcaches
+  claimNames:
+    kind: AppCache
+    plural: appcaches
+  # One composition for both modes: the function-appcache pipeline branches on
+  # spec.parameters.mode (shared | dedicated).
+  defaultCompositionRef:
+    name: appcache.platform.saas.example
+  connectionSecretKeys:
+    - host
+    - port
+    - username
+    - prefix
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [parameters]
+              properties:
+                parameters:
+                  type: object
+                  required: [serviceName, mode]
+                  properties:
+                    serviceName:
+                      type: string
+                      pattern: '^[a-z][a-z0-9-]{0,38}$'
+                      description: Owning service. Becomes the ACL username (shared) or cluster id (dedicated).
+                    mode:
+                      type: string
+                      enum: [shared, dedicated]
+                      default: shared
+                      description: >-
+                        shared = a Redis ACL user scoped to keyPrefix on the platform's
+                        shared cluster (cheap, fast). dedicated = the service's own
+                        ElastiCache ReplicationGroup (isolated, costlier).
+                    keyPrefix:
+                      type: string
+                      pattern: '^[a-z][a-z0-9:_-]{0,48}$'
+                      description: Key namespace the ACL user may touch (~<prefix>:*). Defaults to serviceName.
+                    region:
+                      type: string
+                      default: us-east-1
+                      description: AWS region of the cluster / new resources.
+                    # ── shared-mode inputs ──────────────────────────────────
+                    userGroupId:
+                      type: string
+                      default: saas-redis
+                      description: RBAC user group (on the shared cluster) the tenant user joins. Shared mode.
+                    # ── dedicated-mode inputs ───────────────────────────────
+                    nodeType:
+                      type: string
+                      default: cache.t4g.medium
+                      description: Node type for a dedicated cluster.
+                    numShards:
+                      type: integer
+                      default: 1
+                      minimum: 1
+                      description: Node groups (shards). >1 = cluster mode. Dedicated mode.
+                    numReplicas:
+                      type: integer
+                      default: 1
+                      minimum: 0
+                      description: Replicas per shard. Dedicated mode.
+                    subnetGroupName:
+                      type: string
+                      description: Existing ElastiCache subnet group for a dedicated cluster (from infra).
+                    securityGroupIds:
+                      type: array
+                      items:
+                        type: string
+                      description: Security groups for a dedicated cluster (from infra).
+                    kmsKeyId:
+                      type: string
+                      description: KMS key ARN for at-rest encryption of a dedicated cluster (from infra).
+                status:
+                  type: object
+                  properties:
+                    ready:
+                      type: boolean
+                    mode:
+                      type: string
+                    username:
+                      type: string
+                    prefix:
+                      type: string
+                    connectionSecret:
+                      type: string
