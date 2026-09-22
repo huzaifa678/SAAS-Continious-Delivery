@@ -1,0 +1,56 @@
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# provider-aws (Upbound family) — ElastiCache group only.
+#
+# Powers the self-service cache path (XAppCache): shared-mode tenant ACL Users
+# joined to the Terraform-owned user group, and dedicated-mode ReplicationGroups.
+# The RDS *logical* databases still go through provider-sql; this provider manages
+# real AWS ElastiCache resources, which provider-sql cannot.
+#
+# Installed ahead of the XRD/Composition (wave -1), same as provider-sql.
+#
+# AUTH: the controller authenticates via EKS Pod Identity. Its ServiceAccount
+# name is PINNED to "provider-aws-elasticache" by the DeploymentRuntimeConfig
+# below, so the Pod Identity association in infra (saas-services-infra layer
+# 10-platform, crossplane_aws_elasticache) stays stable across provider
+# revisions. That association attaches the elasticache-management IAM role.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-aws-elasticache
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  serviceAccountTemplate:
+    metadata:
+      # Stable SA name → the target of the infra Pod Identity association.
+      name: provider-aws-elasticache
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws-elasticache
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  package: xpkg.upbound.io/upbound/provider-aws-elasticache:v1.21.1
+  packagePullPolicy: IfNotPresent
+  revisionActivationPolicy: Automatic
+  revisionHistoryLimit: 1
+  runtimeConfigRef:
+    name: provider-aws-elasticache
+---
+# Family config ProviderConfig. source: PodIdentity makes the controller use the
+# credentials the EKS Pod Identity agent injects for its ServiceAccount (the role
+# wired in infra). One config, referenced by every AppCache composed resource via
+# providerConfigRef: name: aws-elasticache.
+apiVersion: aws.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: aws-elasticache
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  credentials:
+    source: PodIdentity

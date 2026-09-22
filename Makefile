@@ -3,6 +3,9 @@
 COMPOSITION_GEN := scripts/gen/appdatabase-composition
 COMPOSITION_OUT := platform/compositions/appdatabase-postgres.yaml
 
+APPCACHE_GEN := scripts/gen/appcache-composition
+APPCACHE_OUT := platform/compositions/appcache.yaml
+
 help:
 	@echo "Targets:"
 	@echo "  schema             Regenerate per-chart values.schema.json from CUE."
@@ -25,19 +28,28 @@ schema:
 
 composition:
 	@cd $(COMPOSITION_GEN) && go run . -out $(CURDIR)/$(COMPOSITION_OUT)
+	@cd $(APPCACHE_GEN) && go run . -out $(CURDIR)/$(APPCACHE_OUT)
 
 check-composition:
-	@tmp=$$(mktemp); \
-	cp $(COMPOSITION_OUT) $$tmp; \
+	@fail=0; \
+	for f in $(COMPOSITION_OUT) $(APPCACHE_OUT); do \
+	  cp $$f $$f.bak; \
+	done; \
 	cd $(COMPOSITION_GEN) && go run . -out $(CURDIR)/$(COMPOSITION_OUT) >/dev/null; \
 	cd $(CURDIR); \
-	if ! diff -q $$tmp $(COMPOSITION_OUT) >/dev/null; then \
-	  echo "$(COMPOSITION_OUT) is out of sync with $(COMPOSITION_GEN) — run 'make composition'"; \
-	  mv $$tmp $(COMPOSITION_OUT); \
-	  exit 1; \
-	fi; \
-	rm -f $$tmp; \
-	echo "composition in sync with generator"
+	cd $(APPCACHE_GEN) && go run . -out $(CURDIR)/$(APPCACHE_OUT) >/dev/null; \
+	cd $(CURDIR); \
+	for f in $(COMPOSITION_OUT) $(APPCACHE_OUT); do \
+	  if ! diff -q $$f.bak $$f >/dev/null; then \
+	    echo "$$f is out of sync with its generator — run 'make composition'"; \
+	    mv $$f.bak $$f; \
+	    fail=1; \
+	  else \
+	    rm -f $$f.bak; \
+	  fi; \
+	done; \
+	if [ $$fail -ne 0 ]; then exit 1; fi; \
+	echo "compositions in sync with generators"
 
 vet:
 	@scripts/vet-values.sh
