@@ -1,0 +1,59 @@
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Shared-cluster RBAC membership — the seam between Terraform and Crossplane.
+#
+# Terraform (saas-services-infra modules/elasticache, rbac_enabled) creates the
+# "saas-redis" user group + its disabled `default` user, with
+# lifecycle.ignore_changes = [user_ids] so it seeds the group but does not own
+# its evolving roster. Crossplane owns the roster, by SELECTING member users on a
+# label. Each AppCache (shared) claim stamps that label on its tenant User, so
+# the group aggregates every tenant automatically — no shared member list to edit.
+#
+# AWS requires the group to always contain `default`. That user is a Terraform
+# resource, so we adopt it here Observe-only purely so the selector can include
+# its id; we never modify it.
+#
+# Region is us-east-1 for every environment today; a second region would render
+# this per-env (like provider-sql) instead of shipping it static.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: elasticache.aws.upbound.io/v1beta1
+kind: User
+metadata:
+  name: saas-redis-default-adopt
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    # Adopt the Terraform-created default user by its id; never create/modify it.
+    crossplane.io/external-name: saas-redis-default
+  labels:
+    platform.saas.example/redis-tenant-group: saas-redis
+spec:
+  # Observe-only: represent the default user so the group selector includes it,
+  # without Crossplane ever writing to it.
+  managementPolicies: ["Observe"]
+  forProvider:
+    region: us-east-1
+  providerConfigRef:
+    name: aws-elasticache
+---
+apiVersion: elasticache.aws.upbound.io/v1beta1
+kind: UserGroup
+metadata:
+  name: saas-redis
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    # Adopt the Terraform-created group by its id.
+    crossplane.io/external-name: saas-redis
+spec:
+  # Observe the TF-owned group, but own its membership (Update). Never
+  # create/delete it — that is Terraform's.
+  managementPolicies: ["Observe", "Update"]
+  forProvider:
+    engine: redis
+    region: us-east-1
+    # Members are resolved from every User (tenants + adopted default) carrying
+    # this label. New AppCache shared claims join simply by existing.
+    userIdsSelector:
+      matchLabels:
+        platform.saas.example/redis-tenant-group: saas-redis
+  providerConfigRef:
+    name: aws-elasticache
