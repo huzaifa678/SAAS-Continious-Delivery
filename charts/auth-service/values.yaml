@@ -30,11 +30,25 @@ security:
       - saas-apps
       - istio-system
       - monitoring
-    allowAllEgress: true
-  # Enforced only when allowAllEgress is false.
+    allowAllEgress: false
   ciliumEgress:
-    enabled: false
+    enabled: true
     kafka: true
+
+externalSecret:
+  enabled: true
+
+  refreshInterval: 1h
+
+  secretStoreRef:
+    name: aws-secretsmanager
+    kind: ClusterSecretStore
+
+  remoteRef:
+    key: saas/auth-service
+
+  target:
+    name: auth-service
 
 rollout:
   revisionHistoryLimit: 5

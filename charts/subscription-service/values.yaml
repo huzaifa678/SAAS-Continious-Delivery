@@ -6,6 +6,21 @@ image:
   repository: ""
   tag: "latest"
 
+externalSecret:
+  enabled: true
+
+  refreshInterval: 1h
+
+  secretStoreRef:
+    name: aws-secretsmanager
+    kind: ClusterSecretStore
+
+  remoteRef:
+    key: saas/subscription-service
+
+  target:
+    name: subscription-service
+
 istio:
   enabled: false
   revision: ""
@@ -30,10 +45,10 @@ security:
       - saas-apps
       - istio-system
       - monitoring
-    allowAllEgress: true
-  # Enforced only when allowAllEgress is false.
+    allowAllEgress: false
   ciliumEgress:
-    enabled: false
+    enabled: true
+    rds: true
     kafka: true
 
 rollout:

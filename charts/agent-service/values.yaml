@@ -2,6 +2,21 @@
 replicas: 2
 port: 8083
 
+externalSecret:
+  enabled: true
+
+  refreshInterval: 1h
+
+  secretStoreRef:
+    name: aws-secretsmanager
+    kind: ClusterSecretStore
+
+  remoteRef:
+    key: saas/agent-service
+
+  target:
+    name: agent-service
+
 image:
   repository: ""
   tag: "latest"
@@ -30,10 +45,9 @@ security:
       - saas-apps
       - istio-system
       - monitoring
-    allowAllEgress: true
-  # Enforced only when allowAllEgress is false.
+    allowAllEgress: false
   ciliumEgress:
-    enabled: false
+    enabled: true
     rds: true
     kafka: true
 

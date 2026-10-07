@@ -30,6 +30,21 @@ services:
   agent:
     name: agent-service
 
+externalSecret:
+  enabled: true
+
+  refreshInterval: 1h
+
+  secretStoreRef:
+    name: aws-secretsmanager
+    kind: ClusterSecretStore
+
+  remoteRef:
+    key: saas/api-gateway
+
+  target:
+    name: api-gateway
+
 image:
   apiGateway: ""
 
