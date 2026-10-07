@@ -15,6 +15,7 @@ hardcoded in this script); this fills the contract values into them per env:
   - provider-sql.{header,instance}.yaml.tpl -> crossplane provider-sql.yaml
   - karpenter-values.yaml.tpl               -> karpenter values-<env>.generated.yaml
   - keycloak-values.yaml.tpl                -> keycloak values-<env>.generated.yaml
+  - cilium-values.yaml.tpl                  -> cilium values-<env>.generated.yaml
 
 Usage:
     scripts/render_gitops.py --contract contracts/gitops-contract.dev.json \\
@@ -104,6 +105,16 @@ def render_karpenter_values(contract: dict) -> str:
     )
     return BANNER + body
 
+def render_cilium_values(contract: dict) -> str:
+    """Helm values setting cilium's k8sServiceHost from the contract."""
+    _require_version(contract)
+    cluster = contract.get("cluster") or {}
+    endpoint = cluster.get("eks_api_endpoint")
+    if not endpoint:
+        raise SystemExit("contract.cluster needs eks_api_endpoint")
+    body = _load_tpl("cilium-values.yaml.tpl").replace("__EKS_API_ENDPOINT__", endpoint)
+    return BANNER + body
+
 
 def render_functions(contract: dict, tag: str, registry: str = "") -> str:
     """Crossplane Function install manifest with the function-appdatabase image.
@@ -140,6 +151,7 @@ def main() -> None:
     parser.add_argument("--out", help="provider-sql output file (default: stdout if no other --*-out given)")
     parser.add_argument("--keycloak-out", help="keycloak values-<env>.generated.yaml output file")
     parser.add_argument("--karpenter-out", help="karpenter values-<env>.generated.yaml output file")
+    parser.add_argument("--cilium-out", help="cilium values-<env>.generated.yaml output file")
     parser.add_argument("--functions-out", help="crossplane functions install output file")
     parser.add_argument("--function-tag", help="function-appdatabase image tag (e.g. sha-abc1234)")
     parser.add_argument("--registry", default="", help="ECR registry host override (default: contract registry.url)")
@@ -162,6 +174,9 @@ def main() -> None:
         wrote_any = True
     if args.karpenter_out:
         _write(args.karpenter_out, render_karpenter_values(contract), "karpenter values")
+        wrote_any = True
+    if args.cilium_out:
+        _write(args.cilium_out, render_cilium_values(contract), "cilium values")
         wrote_any = True
     if args.functions_out:
         _write(
