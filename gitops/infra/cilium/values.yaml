@@ -1,0 +1,20 @@
+kubeProxyReplacement: true
+
+cni:
+  chainingMode: aws-cni
+  exclusive: false
+
+routingMode: native
+enableIPv4Masquerade: false
+
+operator:
+  replicas: 2
+
+hubble:
+  enabled: true
+
+  relay:
+    enabled: true
+
+  ui:
+    enabled: true

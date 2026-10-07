@@ -1,0 +1,11 @@
+---
+apiVersion: v2
+name: cilium
+description: Cilium Kubernetes networking and kube-proxy replacement
+type: application
+version: 1.0.0
+
+dependencies:
+  - name: cilium
+    repository: https://helm.cilium.io/
+    version: 1.20.2

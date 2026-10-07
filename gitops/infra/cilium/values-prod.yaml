@@ -1,0 +1,4 @@
+k8sServicePort: 443
+
+operator:
+  replicas: 2
