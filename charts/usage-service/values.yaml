@@ -30,10 +30,9 @@ security:
       - saas-apps
       - istio-system
       - monitoring
-    allowAllEgress: true
-  # Enforced only when allowAllEgress is false.
+    allowAllEgress: false
   ciliumEgress:
-    enabled: false
+    enabled: true
     rds: true
     kafka: true
 
