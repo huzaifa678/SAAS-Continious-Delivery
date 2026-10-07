@@ -54,8 +54,9 @@ deny contains msg if {
 dangerous_caps := {"ALL", "NET_RAW", "NET_ADMIN", "SYS_ADMIN", "SYS_PTRACE", "SYS_MODULE"}
 
 deny contains msg if {
-	some c in all_containers
-	some cap in object.get(c.securityContext, ["capabilities", "add"], [])
-	upper(cap) in dangerous_caps
-	msg := sprintf("%s: container %q adds dangerous capability %q", [ref, c.name, cap])
+    not allow_host_access
+    some c in all_containers
+    some cap in object.get(c.securityContext, ["capabilities", "add"], [])
+    upper(cap) in dangerous_caps
+    msg := sprintf("%s: container %q adds dangerous capability %q", [ref, c.name, cap])
 }

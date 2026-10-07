@@ -1,0 +1,1 @@
+k8sServiceHost: __EKS_API_ENDPOINT__
