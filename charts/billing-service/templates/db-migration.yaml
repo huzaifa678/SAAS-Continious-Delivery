@@ -49,26 +49,35 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       restartPolicy: Never
+      # The migration Job does not call the Kubernetes API, so it does not need
+      # the automatically mounted ServiceAccount token.
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: {{ (.Values.serviceAccount | default dict).name | default $svc }}
       containers:
         - name: liquibase
-          image: {{ $m.image | default "liquibase/liquibase:4.31.0" }}
-          imagePullPolicy: IfNotPresent
-          command: ["liquibase", "update"]
+          image: {{ $m.image }}
+          imagePullPolicy: Always
+          command: 
+          - /bin/sh
+          - -ec
+          - | 
+            DB_HOST="$(cat /etc/database/host)" 
+            DB_PORT="$(cat /etc/database/port)" 
+            DB_NAME="$(cat /etc/database/db)" 
+            DB_USER="$(cat /etc/database/user)" 
+            DB_PASSWORD="$(cat /etc/database/password)" 
+            export LIQUIBASE_COMMAND_USERNAME="$DB_USER" 
+            export LIQUIBASE_COMMAND_PASSWORD="$DB_PASSWORD" 
+            export LIQUIBASE_COMMAND_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode={{ $m.sslmode | default "require" }}" 
+            exec liquibase update
           env:
-            - name: DB_HOST
-              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: host } }
-            - name: DB_PORT
-              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: port } }
-            - name: DB_NAME
-              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: db } }
-            - name: LIQUIBASE_COMMAND_USERNAME
-              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: user } }
-            - name: LIQUIBASE_COMMAND_PASSWORD
-              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: password } }
-            # k8s substitutes $(DB_*) from the vars declared above.
-            - name: LIQUIBASE_COMMAND_URL
-              value: "jdbc:postgresql://$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode={{ $m.sslmode | default "require" }}"
             - name: LIQUIBASE_COMMAND_CHANGELOG_FILE
               value: changelog.sql
             - name: LIQUIBASE_SEARCH_PATH
@@ -79,6 +88,13 @@ spec:
             - name: changelog
               mountPath: /liquibase/changelog
               readOnly: true
+            # readOnlyRootFilesystem requires an explicitly writable
+            # temporary filesystem for applications that use /tmp.
+            - name: db-secret 
+              mountPath: /etc/database 
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 50m
@@ -88,14 +104,22 @@ spec:
               memory: 256Mi
           securityContext:
             runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
-              drop: ["ALL"]
+              drop:
+                - ALL
             seccompProfile:
               type: RuntimeDefault
       volumes:
         - name: changelog
           configMap:
             name: {{ $svc }}-db-migrations
+        - name: db-secret 
+          secret:
+            secretName: {{ $secret }}
+        - name: tmp
+          emptyDir: {}
 {{- end }}
