@@ -122,6 +122,70 @@
       },
       "additionalProperties": false
     },
+    "ExternalSecret": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "secretStoreRef",
+        "remoteRef",
+        "target"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "refreshInterval": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "secretStoreRef": {
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "SecretStore",
+                "ClusterSecretStore"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "remoteRef": {
+          "type": "object",
+          "required": [
+            "key"
+          ],
+          "properties": {
+            "key": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "target": {
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "Image": {
       "type": "object",
       "required": [
@@ -614,6 +678,9 @@
           "items": {
             "$ref": "#/$defs/EnvVar"
           }
+        },
+        "externalSecret": {
+          "$ref": "#/$defs/ExternalSecret"
         }
       },
       "additionalProperties": false
