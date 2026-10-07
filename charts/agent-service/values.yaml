@@ -31,6 +31,11 @@ security:
       - istio-system
       - monitoring
     allowAllEgress: true
+  # Enforced only when allowAllEgress is false.
+  ciliumEgress:
+    enabled: false
+    rds: true
+    kafka: true
 
 rollout:
   revisionHistoryLimit: 5
@@ -97,7 +102,7 @@ database:
   # DB before the new Rollout starts. Changelog: charts/agent-service/migrations/changelog.sql.
   migrations:
     enabled: false
-    image: liquibase/liquibase:4.31.0
+    image: liquibase/liquibase@sha256:1673fc47b5c8b852e80ccbc5162e099eafc6230c55cf144c06f1d5173f7f9d3d
     sslmode: require         # RDS enforces TLS; use "disable" only for a non-TLS local DB
     backoffLimit: 3
     activeDeadlineSeconds: 600

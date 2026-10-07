@@ -42,11 +42,11 @@
         "instance": {
           "type": "string",
           "enum": [
-            "agent",
             "auth",
             "billing",
             "subscription",
             "usage",
+            "agent",
             "keycloak"
           ]
         },
@@ -66,6 +66,14 @@
         },
         "migrations": {
           "type": "object",
+          "required": [
+            "enabled",
+            "image",
+            "sslmode",
+            "backoffLimit",
+            "activeDeadlineSeconds",
+            "ttlSecondsAfterFinished"
+          ],
           "properties": {
             "enabled": {
               "type": "boolean"
@@ -77,15 +85,10 @@
               "type": "string",
               "enum": [
                 "disable",
-                "allow",
-                "prefer",
                 "require",
                 "verify-ca",
                 "verify-full"
               ]
-            },
-            "secretName": {
-              "type": "string"
             },
             "backoffLimit": {
               "type": "integer"
@@ -503,6 +506,34 @@
             },
             "allowAllEgress": {
               "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "ciliumEgress": {
+          "description": "CiliumNetworkPolicy — FQDN-scoped egress allowlist to external AWS infra\n(RDS, MSK, ElastiCache). DNS egress to kube-dns is always opened so the\nFQDN rules can resolve. Only effective when networkPolicy.allowAllEgress\nis false — an allow-all egress rule would otherwise subsume it.",
+          "type": "object",
+          "required": [
+            "enabled"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "rds": {
+              "type": "boolean"
+            },
+            "kafka": {
+              "type": "boolean"
+            },
+            "redis": {
+              "type": "boolean"
+            },
+            "dnsMatchPatterns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           "additionalProperties": false
