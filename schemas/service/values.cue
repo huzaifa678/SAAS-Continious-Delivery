@@ -33,6 +33,8 @@ package service
 	// Optional plain env vars injected into the container. Used e.g. to enable
 	// OpenAPI/Swagger or GraphQL introspection in dev only (APP_ENV / SPRINGDOC_ENABLED).
 	env?: [...#EnvVar]
+
+	externalSecret?: #ExternalSecret
 }
 
 #EnvVar: {
@@ -179,5 +181,24 @@ package service
 	metricType?: "Utilization" | "AverageValue" | "Value"
 	metadata?: [string]: string
 	name?: string
+}
+
+#ExternalSecret: {
+	enabled!: bool
+	refreshInterval?: string
+	name?: string
+
+	secretStoreRef!: {
+		name!: string
+		kind?: "SecretStore" | "ClusterSecretStore"
+	}
+
+	remoteRef!: {
+		key!: string
+	}
+
+	target!: {
+		name!: string
+	}
 }
 
