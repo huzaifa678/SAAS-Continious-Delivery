@@ -31,6 +31,11 @@ security:
       - istio-system
       - monitoring
     allowAllEgress: true
+  # Enforced only when allowAllEgress is false.
+  ciliumEgress:
+    enabled: false
+    rds: true
+    kafka: true
 
 rollout:
   revisionHistoryLimit: 5

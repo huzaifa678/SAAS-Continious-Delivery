@@ -42,10 +42,18 @@ package service
 
 #Database: {
 	enabled!:      bool
-	instance!:     "auth" | "billing" | "subscription" | "usage" | "keycloak"
+	instance!:     "auth" | "billing" | "subscription" | "usage" | "agent" | "keycloak"
 	databaseName!: =~"^[a-z][a-z0-9_]{0,62}$"
 	owner!:        =~"^[a-z][a-z0-9_]{0,62}$"
 	extensions?: [...string]
+	migrations?: {
+        enabled!:                  bool
+        image!:                    string
+        sslmode!:                  "disable" | "require" | "verify-ca" | "verify-full"
+        backoffLimit!:             int
+        activeDeadlineSeconds!:    int
+        ttlSecondsAfterFinished!:  int
+    }
 }
 
 #Image: {
@@ -87,6 +95,17 @@ package service
 		enabled?: bool
 		ingressNamespaces?: [...string]
 		allowAllEgress?: bool
+	}
+	// CiliumNetworkPolicy — FQDN-scoped egress allowlist to external AWS infra
+	// (RDS, MSK, ElastiCache). DNS egress to kube-dns is always opened so the
+	// FQDN rules can resolve. Only effective when networkPolicy.allowAllEgress
+	// is false — an allow-all egress rule would otherwise subsume it.
+	ciliumEgress?: {
+		enabled!: bool
+		rds?:     bool
+		kafka?:   bool
+		redis?:   bool
+		dnsMatchPatterns?: [...string]
 	}
 }
 

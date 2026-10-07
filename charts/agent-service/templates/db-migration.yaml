@@ -49,12 +49,31 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: {{ (.Values.serviceAccount | default dict).name | default $svc }}
       containers:
         - name: liquibase
-          image: {{ $m.image | default "liquibase/liquibase:4.31.0" }}
-          imagePullPolicy: IfNotPresent
-          command: ["liquibase", "update"]
+          image: {{ $m.image }}
+          imagePullPolicy: Always
+          command: 
+          - /bin/sh
+          - -ec
+          - | 
+            DB_HOST="$(cat /etc/database/host)" 
+            DB_PORT="$(cat /etc/database/port)" 
+            DB_NAME="$(cat /etc/database/db)" 
+            DB_USER="$(cat /etc/database/user)" 
+            DB_PASSWORD="$(cat /etc/database/password)" 
+            export LIQUIBASE_COMMAND_USERNAME="$DB_USER" 
+            export LIQUIBASE_COMMAND_PASSWORD="$DB_PASSWORD" 
+            export LIQUIBASE_COMMAND_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode={{ $m.sslmode | default "require" }}" exec liquibase update
           env:
             - name: DB_HOST
               valueFrom: { secretKeyRef: { name: {{ $secret }}, key: host } }
@@ -79,6 +98,8 @@ spec:
             - name: changelog
               mountPath: /liquibase/changelog
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 50m
@@ -88,10 +109,13 @@ spec:
               memory: 256Mi
           securityContext:
             runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
-              drop: ["ALL"]
+              drop:
+                - ALL
             seccompProfile:
               type: RuntimeDefault
       volumes:

@@ -91,3 +91,56 @@ spec:
           port: 53
     {{- end }}
 {{- end }}
+{{- $ce := $sec.ciliumEgress | default dict }}
+{{- if $ce.enabled }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ $svc }}-egress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ $svc }}
+spec:
+  endpointSelector:
+    matchLabels:
+      app: {{ $svc }}
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              {{- range ($ce.dnsMatchPatterns | default (list "*.amazonaws.com")) }}
+              - matchPattern: {{ . | quote }}
+              {{- end }}
+    {{- if $ce.rds }}
+    - toFQDNs:
+        - matchPattern: "*.rds.amazonaws.com"
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+    {{- end }}
+    {{- if $ce.kafka }}
+    - toFQDNs:
+        - matchPattern: "*.kafka.*.amazonaws.com"
+      toPorts:
+        - ports:
+            - port: "9098"
+              protocol: TCP
+    {{- end }}
+    {{- if $ce.redis }}
+    - toFQDNs:
+        - matchPattern: "*.cache.amazonaws.com"
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP
+    {{- end }}
+{{- end }}

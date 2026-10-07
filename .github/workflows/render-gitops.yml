@@ -73,6 +73,8 @@ jobs:
           if [ "$MODE" = "render" ]; then
             python3 scripts/render_gitops.py --contract "$contract" \
               --karpenter-out "gitops/infra/karpenter/values-${ENV}.generated.yaml"
+            python3 scripts/render_gitops.py --contract "$contract" \
+              --cilium-out "gitops/infra/cilium/values-${ENV}.generated.yaml"
             if [ "$ENV" = "prod" ]; then
               python3 scripts/render_gitops.py --contract "$contract" \
                 --keycloak-out "gitops/infra/keycloak/values-prod.generated.yaml"
