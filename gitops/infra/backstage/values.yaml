@@ -18,5 +18,27 @@ resources:
   requests: { cpu: 100m, memory: 256Mi }
   limits:   { cpu: 500m, memory: 512Mi }
 
+# App-config overlay owned by this GitOps repo. A PreSync Job renders `overlay`
+# into the `backstage-config-overlay` ConfigMap, which the Deployment mounts and
+# loads as its LAST --config (so these values win over the image's baked
+# app-config.yaml / app-config.production.yaml). Lets config change per-env
+# without rebuilding the SAAS-IDP image. Set enabled:false to run on baked config
+# only. Values may reference the pod's env (e.g. ${BACKSTAGE_HOST}) — Backstage
+# substitutes them at config load, same as the baked files.
+config:
+  enabled: true
+  # Must contain kubectl + a POSIX shell; overridable per-env.
+  image: registry.k8s.io/kubectl:v1.31.1
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 1800
+  # Free-form Backstage app-config, merged last. Example:
+  #   overlay:
+  #     organization:
+  #       name: FreeEasyCrypto Platform
+  #     app:
+  #       title: SaaS Developer Portal
+  overlay: {}
+
 gateway:
   enabled: false

@@ -18,6 +18,12 @@ spec:
     metadata:
       labels:
         app: backstage
+      {{- if .Values.config.enabled }}
+      annotations:
+        # Roll the pods when the overlay changes (the config-render Job republishes
+        # the ConfigMap at PreSync, but a ConfigMap change alone won't restart pods).
+        checksum/config-overlay: {{ .Values.config.overlay | toYaml | sha256sum }}
+      {{- end }}
     spec:
       serviceAccountName: backstage
       # Mounted token is what the Kubernetes plugin uses (localKubectlProxy).
@@ -33,6 +39,10 @@ spec:
             - "app-config.yaml"
             - "--config"
             - "app-config.production.yaml"
+            {{- if .Values.config.enabled }}
+            - "--config"
+            - "/app/config-overlay/app-config.overlay.yaml"
+            {{- end }}
           ports:
             - name: http
               containerPort: 7007
@@ -58,3 +68,13 @@ spec:
             periodSeconds: 20
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.config.enabled }}
+          volumeMounts:
+            - name: config-overlay
+              mountPath: /app/config-overlay
+              readOnly: true
+      volumes:
+        - name: config-overlay
+          configMap:
+            name: backstage-config-overlay
+          {{- end }}

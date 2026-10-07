@@ -1,0 +1,150 @@
+{{- if .Values.config.enabled }}
+{{- $c := .Values.config }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backstage-config-source
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: backstage
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  app-config.overlay.yaml: |
+{{ $c.overlay | toYaml | indent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backstage-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: backstage
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "0"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backstage-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: backstage
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "0"
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get, create, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backstage-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: backstage
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "0"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: backstage-config
+subjects:
+  - kind: ServiceAccount
+    name: backstage-config
+    namespace: {{ .Release.Namespace }}
+---
+# Argo CD PreSync hook: renders the app-config overlay into the
+# `backstage-config-overlay` ConfigMap BEFORE the Deployment is applied
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: backstage-config-render
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: backstage
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: {{ $c.backoffLimit | default 3 }}
+  activeDeadlineSeconds: {{ $c.activeDeadlineSeconds | default 300 }}
+  ttlSecondsAfterFinished: {{ $c.ttlSecondsAfterFinished | default 1800 }}
+  template:
+    metadata:
+      labels:
+        app: backstage
+        job: config-render
+      annotations:
+        # A mesh sidecar would never exit and the Job would hang; keep this Pod out of it.
+        sidecar.istio.io/inject: "false"
+    spec:
+      restartPolicy: Never
+      serviceAccountName: backstage-config
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: render
+          image: {{ $c.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              # The overlay passed in from Helm values (via the source ConfigMap).
+              test -s /src/app-config.overlay.yaml
+              # Publish it as the ConfigMap the Backstage Deployment mounts and
+              # loads as its last --config. apply = create-or-update, idempotent.
+              kubectl create configmap backstage-config-overlay \
+                --namespace "{{ .Release.Namespace }}" \
+                --from-file=app-config.overlay.yaml=/src/app-config.overlay.yaml \
+                --dry-run=client -o yaml | kubectl apply -f -
+          env:
+            # kubectl needs a writable HOME for its cache/config on a read-only rootfs.
+            - name: HOME
+              value: /tmp
+          volumeMounts:
+            - name: source
+              mountPath: /src
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+      volumes:
+        - name: source
+          configMap:
+            name: backstage-config-source
+        - name: tmp
+          emptyDir: {}
+{{- end }}
