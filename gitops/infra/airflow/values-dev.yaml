@@ -1,0 +1,24 @@
+# Per-env override. extraEnv is a LIST (Helm replaces lists, not merges), so the full
+# list is repeated here with this env's image tag. gitSync is a map, so only branch
+# is overridden (repo/subPath come from values.yaml).
+airflow:
+  airflow:
+    extraEnv:
+      - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+        valueFrom:
+          secretKeyRef:
+            name: airflow-db
+            key: dsn
+      - name: USAGE_ETL_IMAGE_REPO
+        value: "533267178572.dkr.ecr.us-east-1.amazonaws.com/usage-service"
+      - name: USAGE_ETL_IMAGE_TAG
+        value: "dev"
+      - name: USAGE_ETL_NAMESPACE
+        value: "airflow"
+      - name: USAGE_ETL_ENV_SECRET
+        value: "usage-etl-env"
+      - name: USAGE_ETL_SERVICE_ACCOUNT
+        value: "usage-etl"
+  dags:
+    gitSync:
+      branch: "dev"
