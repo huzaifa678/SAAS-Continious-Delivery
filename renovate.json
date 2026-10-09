@@ -49,7 +49,7 @@
 
   "hostRules": [
     {
-      "matchHost": "123456789.dkr.ecr.us-east-1.amazonaws.com",
+      "matchHost": "533267178572.dkr.ecr.us-east-1.amazonaws.com",
       "hostType": "docker",
       "username": "AWS",
       "password": "{{ secrets.ECR_PASSWORD }}"

@@ -1,5 +1,5 @@
 image:
-  repository: "123456789.dkr.ecr.us-east-1.amazonaws.com/backstage"
+  repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/backstage"
   tag: ""
   pullPolicy: IfNotPresent
 

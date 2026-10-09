@@ -7,8 +7,8 @@ argocd-image-updater:
     git.email: image-updater@saas.local
     registries:
       - name: ECR
-        prefix: 123456789.dkr.ecr.us-east-1.amazonaws.com
-        api_url: https://123456789.dkr.ecr.us-east-1.amazonaws.com
+        prefix: 533267178572.dkr.ecr.us-east-1.amazonaws.com
+        api_url: https://533267178572.dkr.ecr.us-east-1.amazonaws.com
         ping: true
         credentials: ext:/scripts/ecr-login.sh
         credsexpire: 10h
@@ -23,7 +23,7 @@ argocd-image-updater:
   serviceAccount:
     create: true
     annotations:
-      eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/argocd-image-updater
+      eks.amazonaws.com/role-arn: arn:aws:iam::533267178572:role/argocd-image-updater
   resources:
     requests: { cpu: 50m, memory: 64Mi }
     limits:   { cpu: 200m, memory: 128Mi }

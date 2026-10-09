@@ -32,7 +32,7 @@ spec:
     spec:
       project: default
       sources:
-        - repoURL: oci://123456789.dkr.ecr.us-east-1.amazonaws.com/helm
+        - repoURL: oci://533267178572.dkr.ecr.us-east-1.amazonaws.com/helm
           chart: '{{.path.basename}}'
           targetRevision: 0.1.0
           helm:
@@ -71,7 +71,7 @@ spec:
     {{- if eq .metadata.labels.env "dev" }}
     metadata:
       annotations:
-        argocd-image-updater.argoproj.io/image-list: '{{.path.basename}}=123456789.dkr.ecr.us-east-1.amazonaws.com/{{.path.basename}}'
+        argocd-image-updater.argoproj.io/image-list: '{{.path.basename}}=533267178572.dkr.ecr.us-east-1.amazonaws.com/{{.path.basename}}'
         argocd-image-updater.argoproj.io/{{.path.basename}}.update-strategy: newest-build
         argocd-image-updater.argoproj.io/{{.path.basename}}.allow-tags: 'regexp:^sha-[0-9a-f]{7,40}$'
         argocd-image-updater.argoproj.io/{{.path.basename}}.helm.image-name: image.repository

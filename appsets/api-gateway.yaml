@@ -58,7 +58,7 @@ spec:
     {{- if eq .metadata.labels.env "dev" }}
     metadata:
       annotations:
-        argocd-image-updater.argoproj.io/image-list: 'apigw=123456789.dkr.ecr.us-east-1.amazonaws.com/api-gateway'
+        argocd-image-updater.argoproj.io/image-list: 'apigw=533267178572.dkr.ecr.us-east-1.amazonaws.com/api-gateway'
         argocd-image-updater.argoproj.io/apigw.update-strategy: newest-build
         argocd-image-updater.argoproj.io/apigw.allow-tags: 'regexp:^sha-[0-9a-f]{7,40}$'
         argocd-image-updater.argoproj.io/apigw.helm.image-spec: image.apiGateway
