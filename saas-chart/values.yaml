@@ -13,10 +13,16 @@ tlsSecretName:
   http: saas-app-api-tls
 
 gateway:
+  # Renders the Gateway API Gateway + HTTPRoute for the public API entrypoint.
+  enabled: true
+  # DNS name of the internet-facing NLB fronting the nginx GatewayClass. Set once
+  # the NLB exists (see the keycloak gateway's nginx-gateway-lb Service for the
+  # pattern); until then it stays empty and the external-dns target annotation is
+  # omitted, so no DNS record is published against a non-existent load balancer.
   nlbTarget: ""
 
 domainName:
-  http: ""
+  http: api.freeeasycrypto.com
 
 apiService: saas-api-service
 
@@ -29,6 +35,8 @@ services:
     name: billing-service
   agent:
     name: agent-service
+  usage:
+    name: usage-service
 
 externalSecret:
   enabled: true

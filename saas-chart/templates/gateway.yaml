@@ -1,12 +1,14 @@
 ---
-{{- if and .Values.gateway.enabled (eq .Values.environment "post-test") }}
+{{- if .Values.gateway.enabled }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: {{ .Values.appName }}-gateway
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-    external-dns.alpha.kubernetes.io/target: {{ .Values.gateway.nlbTarget | quote }}
+    {{- with .Values.gateway.nlbTarget }}
+    external-dns.alpha.kubernetes.io/target: {{ . | quote }}
+    {{- end }}
 spec:
   gatewayClassName: {{ .Values.gatewayClass }}
   listeners:
