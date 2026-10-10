@@ -1,5 +1,16 @@
+# Staging mirrors dev: Keycloak runs on the in-cluster Postgres, with its
+# credentials (keycloak-postgres-secret) supplied by the rendered crossplane
+# provider-sql overlay from the keycloak-db RDS secret (auth_provider=keycloak in
+# the infra staging tier provisions that secret). Only prod points Keycloak at the
+# RDS endpoint directly.
 keycloakx:
   database:
     hostname: keycloak-postgres.keycloak.svc.cluster.local
 inClusterDb:
   enabled: true
+
+# Externally reachable Keycloak for staging (browser OIDC, e.g. Backstage sign-in).
+# Host matches the backstage-app secret's KEYCLOAK_METADATA_URL (infra staging tier).
+gateway:
+  enabled: true
+host: keycloak.staging.freeeasycrypto.com

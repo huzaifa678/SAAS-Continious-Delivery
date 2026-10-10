@@ -53,6 +53,16 @@ keycloakx:
 # In-cluster Postgres (templates/postgres.yaml) for non-prod; prod uses RDS.
 inClusterDb:
   enabled: false
-# TLS gateway/HTTPRoute (templates/gateway.yaml) — prod only.
+# Public hostname for the Keycloak gateway + TLS cert (per-env; prod default here,
+# overridden in values-staging.yaml). Must match the backstage-app secret's
+# KEYCLOAK_METADATA_URL host (saas-services-infra backstage module).
+host: keycloak.freeeasycrypto.com
+
+# Shared cert-manager ClusterIssuer (gitops/infra/cert-manager) — same one
+# argocd/grafana/backstage use for their gateway TLS.
+issuer: letsencrypt
+
+# TLS gateway/HTTPRoute (templates/gateway.yaml) — enabled in staging + prod so
+# Keycloak is externally reachable for browser OIDC (Backstage etc.).
 gateway:
   enabled: false

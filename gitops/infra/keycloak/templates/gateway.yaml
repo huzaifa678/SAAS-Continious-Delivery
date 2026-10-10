@@ -7,21 +7,9 @@ metadata:
   labels:
     cert-manager.io/disable-validation: "true"
 ---
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-keycloak
-spec:
-  acme:
-    email: huzaifagill411@gmail.com
-    server: https://acme-v02.api.letsencrypt.org/directory
-    privateKeySecretRef:
-      name: letsencrypt-keycloak-private-key
-    solvers:
-      - dns01:
-          route53:
-            region: us-east-1
----
+# TLS cert issued by the SHARED cert-manager ClusterIssuer (gitops/infra/cert-manager),
+# the same one argocd/grafana/backstage use — set via .Values.issuer. No bespoke
+# per-app ClusterIssuer.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -30,25 +18,23 @@ metadata:
 spec:
   secretName: keycloak-tls
   issuerRef:
-    name: letsencrypt-keycloak
+    name: {{ .Values.issuer }}
     kind: ClusterIssuer
   dnsNames:
-    - keycloak.freeeasycrypto.com
+    - {{ .Values.host | quote }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: keycloak-gateway
   namespace: keycloak
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-keycloak
 spec:
   gatewayClassName: nginx
   listeners:
     - name: https
       port: 443
       protocol: HTTPS
-      hostname: keycloak.freeeasycrypto.com
+      hostname: {{ .Values.host | quote }}
       tls:
         mode: Terminate
         certificateRefs:
@@ -64,7 +50,7 @@ spec:
   parentRefs:
     - name: keycloak-gateway
   hostnames:
-    - keycloak.freeeasycrypto.com
+    - {{ .Values.host | quote }}
   rules:
     - backendRefs:
         # keycloakx's client-facing Service (chart fullnameOverride: keycloak).
