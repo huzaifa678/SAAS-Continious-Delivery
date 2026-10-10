@@ -1,11 +1,13 @@
 image:
-  repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/backstage"
+  repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/backstage-saas"
   tag: ""
   pullPolicy: IfNotPresent
 
 replicas: 1
 
-host: ""
+host: "backstage.freeeasycrypto.com"
+
+issuer: letsencrypt
 
 argocd:
   url: "https://argocd-server.argocd.svc.cluster.local"
