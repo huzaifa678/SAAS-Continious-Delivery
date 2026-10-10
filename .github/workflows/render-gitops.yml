@@ -4,7 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Target environment"
+        # The INFRA environment that published the contract to SSM. The infra repo
+        # calls the staging tier "test"; the contract carries the CD-facing name
+        # (test -> staging), which this workflow uses for all output paths.
+        description: "Infra environment that published the contract (staging tier = 'test')"
         required: true
         default: "dev"
         type: choice
@@ -20,19 +23,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Read delivery mode
-        id: mode
-        env:
-          ENV: ${{ inputs.environment }}
-        run: |
-          mode_file="contracts/delivery-mode.${ENV}"
-          if [ ! -f "$mode_file" ]; then
-            echo "::error::$mode_file not found"; exit 1
-          fi
-          mode="$(tr -d '[:space:]' < "$mode_file")"
-          echo "mode=${mode}" >> "$GITHUB_OUTPUT"
-          echo "delivery mode for ${ENV} is '${mode}'."
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -46,22 +36,41 @@ jobs:
           aws-region: us-east-1
 
       - name: Fetch GitOps contract from SSM
+        env:
+          INFRA_ENV: ${{ inputs.environment }}
         run: |
           mkdir -p contracts
+          # Contract is published under the INFRA env name (e.g. /saas/test/...).
           aws ssm get-parameter \
-            --name "/saas/${{ inputs.environment }}/gitops-contract" \
+            --name "/saas/${INFRA_ENV}/gitops-contract" \
             --with-decryption --query Parameter.Value --output text \
-            > "contracts/gitops-contract.${{ inputs.environment }}.json"
+            > contracts/.contract.src.json
+          # CD-facing env name comes FROM the contract (infra "test" -> "staging").
+          CD_ENV="$(jq -r '.environment // empty' contracts/.contract.src.json)"
+          CD_ENV="${CD_ENV:-$INFRA_ENV}"
+          mv contracts/.contract.src.json "contracts/gitops-contract.${CD_ENV}.json"
+          echo "CD_ENV=${CD_ENV}" >> "$GITHUB_ENV"
+          echo "gitops contract: infra env '${INFRA_ENV}' -> CD env '${CD_ENV}'"
+
+      - name: Read delivery mode
+        id: mode
+        run: |
+          mode_file="contracts/delivery-mode.${CD_ENV}"
+          if [ ! -f "$mode_file" ]; then
+            echo "::error::$mode_file not found"; exit 1
+          fi
+          mode="$(tr -d '[:space:]' < "$mode_file")"
+          echo "mode=${mode}" >> "$GITHUB_OUTPUT"
+          echo "delivery mode for ${CD_ENV} is '${mode}'."
 
       - name: Render manifests
         env:
-          ENV: ${{ inputs.environment }}
           MODE: ${{ steps.mode.outputs.mode }}
         run: |
-          contract="contracts/gitops-contract.${ENV}.json"
+          contract="contracts/gitops-contract.${CD_ENV}.json"
           # provider-sql (crossplane) — rendered in BOTH modes.
           python3 scripts/render_gitops.py --contract "$contract" \
-            --out "infra/overlays/${ENV}/crossplane/provider-sql.yaml"
+            --out "infra/overlays/${CD_ENV}/crossplane/provider-sql.yaml"
           # crossplane functions install — ECR registry host from the contract.
           # Preserve the current image tag (owned by the build-function workflow).
           fn_tag=$(grep -oE 'function-appdatabase:[^ ]+' platform/functions/functions.yaml | head -1 | cut -d: -f2)
@@ -72,10 +81,13 @@ jobs:
           # come from the karpenter-contract / keycloak-contract Secrets at runtime.
           if [ "$MODE" = "render" ]; then
             python3 scripts/render_gitops.py --contract "$contract" \
-              --karpenter-out "gitops/infra/karpenter/values-${ENV}.generated.yaml"
+              --karpenter-out "gitops/infra/karpenter/values-${CD_ENV}.generated.yaml"
             python3 scripts/render_gitops.py --contract "$contract" \
-              --cilium-out "gitops/infra/cilium/values-${ENV}.generated.yaml"
-            if [ "$ENV" = "prod" ]; then
+              --cilium-out "gitops/infra/cilium/values-${CD_ENV}.generated.yaml"
+            # Keycloak values are only rendered where Keycloak points at the RDS
+            # endpoint directly (prod). dev/staging run Keycloak on the in-cluster
+            # Postgres, so they do not consume a generated keycloak values file.
+            if [ "$CD_ENV" = "prod" ]; then
               python3 scripts/render_gitops.py --contract "$contract" \
                 --keycloak-out "gitops/infra/keycloak/values-prod.generated.yaml"
             fi
@@ -85,21 +97,20 @@ jobs:
 
       - name: Commit rendered manifests
         env:
-          ENV: ${{ inputs.environment }}
           MODE: ${{ steps.mode.outputs.mode }}
         run: |
           git config user.name "gitops-renderer[bot]"
           git config user.email "gitops-renderer@users.noreply.github.com"
-          git add "contracts/gitops-contract.${ENV}.json" \
-            "infra/overlays/${ENV}/crossplane/provider-sql.yaml" \
+          git add "contracts/gitops-contract.${CD_ENV}.json" \
+            "infra/overlays/${CD_ENV}/crossplane/provider-sql.yaml" \
             "platform/functions/functions.yaml"
           if [ "$MODE" = "render" ]; then
-            git add "gitops/infra/karpenter/values-${ENV}.generated.yaml"
-            [ "$ENV" = "prod" ] && git add "gitops/infra/keycloak/values-prod.generated.yaml" || true
+            git add "gitops/infra/karpenter/values-${CD_ENV}.generated.yaml"
+            [ "$CD_ENV" = "prod" ] && git add "gitops/infra/keycloak/values-prod.generated.yaml" || true
           fi
           if git diff --cached --quiet; then
             echo "no changes to commit"
           else
-            git commit -m "render gitops manifests for ${ENV} (${MODE} mode)"
+            git commit -m "render gitops manifests for ${CD_ENV} (${MODE} mode)"
             git push
           fi
