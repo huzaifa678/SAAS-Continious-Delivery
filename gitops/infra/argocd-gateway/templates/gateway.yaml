@@ -20,8 +20,6 @@ kind: Gateway
 metadata:
   name: argocd-gateway
   namespace: argocd
-  annotations:
-    cert-manager.io/cluster-issuer: {{ .Values.issuer }}
 spec:
   gatewayClassName: nginx
   listeners:

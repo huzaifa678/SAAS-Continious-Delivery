@@ -1,14 +1,30 @@
 ---
 {{- if .Values.gateway.enabled }}
+# Explicit TLS cert for the public API host, issued by the shared cert-manager
+# ClusterIssuer. Replaces the Gateway's cert-manager.io/cluster-issuer annotation
+# so a single Certificate manages the {{ .Values.tlsSecretName.http }} secret —
+# consistent with the argocd/grafana/keycloak/backstage gateways.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.tlsSecretName.http }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ .Values.tlsSecretName.http }}
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+  dnsNames:
+    - {{ .Values.domainName.http | quote }}
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: {{ .Values.appName }}-gateway
+  {{- with .Values.gateway.nlbTarget }}
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt
-    {{- with .Values.gateway.nlbTarget }}
     external-dns.alpha.kubernetes.io/target: {{ . | quote }}
-    {{- end }}
+  {{- end }}
 spec:
   gatewayClassName: {{ .Values.gatewayClass }}
   listeners:

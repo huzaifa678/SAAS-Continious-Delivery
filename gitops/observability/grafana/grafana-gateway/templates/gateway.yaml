@@ -19,8 +19,6 @@ kind: Gateway
 metadata:
   name: grafana-gateway
   namespace: monitoring
-  annotations:
-    cert-manager.io/cluster-issuer: {{ .Values.issuer }}
 spec:
   gatewayClassName: nginx
   listeners:
