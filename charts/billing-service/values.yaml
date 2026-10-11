@@ -3,7 +3,7 @@ replicas: 2
 port: 8082
 
 image:
-  repository: ""
+  repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/billing-service"
   tag: "latest"
 
 istio:
@@ -42,7 +42,7 @@ externalSecret:
   refreshInterval: 1h
 
   secretStoreRef:
-    name: aws-secretsmanager
+    name: aws-secrets-manager
     kind: ClusterSecretStore
 
   remoteRef:

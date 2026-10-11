@@ -8,7 +8,7 @@ externalSecret:
   refreshInterval: 1h
 
   secretStoreRef:
-    name: aws-secretsmanager
+    name: aws-secrets-manager
     kind: ClusterSecretStore
 
   remoteRef:
@@ -18,7 +18,7 @@ externalSecret:
     name: agent-service
 
 image:
-  repository: ""
+  repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/agent-service"
   tag: "latest"
 
 istio:

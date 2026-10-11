@@ -77,7 +77,7 @@ usageEtl:
     enabled: true
     refreshInterval: 1h
     secretStoreRef:
-      name: aws-secretsmanager
+      name: aws-secrets-manager
       kind: ClusterSecretStore
     remoteRef:
       key: saas/usage-etl

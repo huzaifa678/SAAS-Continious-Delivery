@@ -3,7 +3,7 @@ replicas: 2
 port: 8081
 
 image:
-  repository: ""
+  repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/subscription-service"
   tag: "latest"
 
 externalSecret:
@@ -12,7 +12,7 @@ externalSecret:
   refreshInterval: 1h
 
   secretStoreRef:
-    name: aws-secretsmanager
+    name: aws-secrets-manager
     kind: ClusterSecretStore
 
   remoteRef:
