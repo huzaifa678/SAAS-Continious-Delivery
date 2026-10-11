@@ -1,15 +1,12 @@
 ---
 global:
   environment: staging
-
 istio:
   enabled: true
   revision: ""
-
 image:
   repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/api-gateway"
-  tag: "staging"
-
+  tag: "sha-c27eadd478e320e6f3d878c17f803d36047e0629"
 apiGateway:
   replicas: 2
   circuitBreaking:
@@ -22,22 +19,17 @@ apiGateway:
       interval: "30s"
       baseEjectionTime: "30s"
       maxEjectionPercent: 10
-
 opentelemetry-collector:
   enabled: true
-
   image:
     repository: otel/opentelemetry-collector-contrib
     tag: "0.159.0"
-
   serviceAccount:
     create: true
     name: otel-collector
-
   extraEnvs:
     - name: KAFKA_BOOTSTRAP_SERVERS
       value: BOOTSTRAP_BROKERS
-
   config:
     exporters:
       otlp/elastic:
