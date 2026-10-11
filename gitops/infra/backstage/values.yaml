@@ -44,3 +44,30 @@ config:
 
 gateway:
   enabled: false
+
+# Generate the Keycloak OIDC client secret and the Argo CD API token IN-CLUSTER
+# (PreSync Jobs) instead of seeding them out-of-band into saas/backstage-input.
+# When enabled, both land in the `targetSecret`, which the Deployment also loads
+# via envFrom (it overrides any same-named keys coming from backstage-app). Opt-in:
+# leave disabled to keep the seeded values. See docs/backstage-secret-generation.md.
+secretGeneration:
+  enabled: false
+  # alpine/k8s carries kubectl + curl + jq, all the Jobs need.
+  image: alpine/k8s:1.31.1
+  targetSecret: backstage-generated
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 1800
+  keycloak:
+    namespace: keycloak
+    url: http://keycloak.keycloak.svc.cluster.local
+    realm: saas                       # must match the infra backstage module's keycloak_realm
+    clientId: backstage               # must match keycloak_client_id
+    adminSecret: keycloak-admin-secret
+    # Backstage OIDC handler callback; derived from host when empty.
+    redirectUri: ""
+  argocd:
+    namespace: argocd
+    server: https://argocd-server.argocd.svc.cluster.local
+    account: backstage                # must exist as an apiKey account in argocd-cm
+    adminSecret: argocd-initial-admin-secret

@@ -47,10 +47,16 @@ spec:
             - name: http
               containerPort: 7007
           envFrom:
-            # POSTGRES_* from the DB ExternalSecret; KEYCLOAK_*, GITHUB_TOKEN,
-            # BACKEND_SECRET, ARGOCD_AUTH_TOKEN from the app ExternalSecret.
+            # POSTGRES_* from the DB ExternalSecret; KEYCLOAK_METADATA_URL/CLIENT_ID,
+            # GITHUB_TOKEN, BACKEND_SECRET (and, unless generated in-cluster,
+            # KEYCLOAK_CLIENT_SECRET + ARGOCD_AUTH_TOKEN) from the app ExternalSecret.
             - secretRef: { name: backstage-db }
             - secretRef: { name: backstage-app }
+            {{- if .Values.secretGeneration.enabled }}
+            # In-cluster generated KEYCLOAK_CLIENT_SECRET + ARGOCD_AUTH_TOKEN. Listed
+            # last so it wins over any same-named keys from backstage-app.
+            - secretRef: { name: {{ .Values.secretGeneration.targetSecret }} }
+            {{- end }}
           env:
             - name: BACKSTAGE_HOST
               value: {{ .Values.host | quote }}
