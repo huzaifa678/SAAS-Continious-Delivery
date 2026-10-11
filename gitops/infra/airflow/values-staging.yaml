@@ -12,7 +12,7 @@ airflow:
       - name: USAGE_ETL_IMAGE_REPO
         value: "533267178572.dkr.ecr.us-east-1.amazonaws.com/usage-service"
       - name: USAGE_ETL_IMAGE_TAG
-        value: "staging"
+        value: "sha-d1fcb5427d48af2e7ef093701ba03c5284093ada"
       - name: USAGE_ETL_NAMESPACE
         value: "airflow"
       - name: USAGE_ETL_ENV_SECRET
