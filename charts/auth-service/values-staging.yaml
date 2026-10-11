@@ -1,14 +1,11 @@
 ---
 replicas: 2
-
 image:
-  repository: ""
-  tag: "staging"
-
+  repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/auth-service"
+  tag: "sha-c51949cbf97f58e38c00ef343ff15f1f09b52911"
 istio:
   enabled: true
   revision: ""
-
 circuitBreaking:
   maxConnections: 100
   http1MaxPendingRequests: 1000
@@ -19,7 +16,6 @@ circuitBreaking:
     interval: "30s"
     baseEjectionTime: "30s"
     maxEjectionPercent: 10
-
 # Staging: full canary progression with Prometheus analysis between steps
 rollout:
   analysis:
@@ -45,7 +41,6 @@ rollout:
           - templateName: auth-service-success-rate
           - templateName: auth-service-latency-p95
     - setWeight: 100
-
 keda:
   enabled: true
   minReplicaCount: 2
