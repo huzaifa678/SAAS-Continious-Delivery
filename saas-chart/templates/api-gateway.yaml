@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
       - name: {{ $svc }}
-        image: {{ if $active }}{{ $.Values.image.apiGateway }}{{ else }}{{ $.Values.apiGateway.blueGreen.previewImage }}{{ end }}
+        image: {{ if $active }}{{ $.Values.image.repository }}:{{ $.Values.image.tag }}{{ else }}{{ $.Values.apiGateway.blueGreen.previewImage }}{{ end }}
         imagePullPolicy: Always
         ports:
         - containerPort: {{ $.Values.apiGateway.port }}

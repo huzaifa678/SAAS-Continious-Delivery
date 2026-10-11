@@ -6,7 +6,8 @@ istio:
   enabled: false
 
 image:
-  apiGateway: ""
+  repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/api-gateway"
+  tag: "dev"
 
 apiGateway:
   replicas: 1

@@ -44,7 +44,7 @@ externalSecret:
   refreshInterval: 1h
 
   secretStoreRef:
-    name: aws-secretsmanager
+    name: aws-secrets-manager
     kind: ClusterSecretStore
 
   remoteRef:
@@ -54,7 +54,8 @@ externalSecret:
     name: api-gateway
 
 image:
-  apiGateway: ""
+  repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/api-gateway"
+  tag: "latest"
 
 apiGateway:
   replicas: 2
