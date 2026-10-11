@@ -1,14 +1,11 @@
 ---
 replicas: 2
-
 image:
-  repository: ""
-  tag: "staging"
-
+  repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/agent-service"
+  tag: "sha-040aa03af1e110b65d522aa162d111bec951d3c3"
 istio:
   enabled: true
   revision: ""
-
 circuitBreaking:
   maxConnections: 100
   http1MaxPendingRequests: 1000
@@ -19,7 +16,6 @@ circuitBreaking:
     interval: "30s"
     baseEjectionTime: "30s"
     maxEjectionPercent: 10
-
 # Staging: full canary progression with Prometheus analysis between steps
 rollout:
   analysis:
@@ -45,7 +41,6 @@ rollout:
           - templateName: agent-service-success-rate
           - templateName: agent-service-latency-p95
     - setWeight: 100
-
 keda:
   enabled: true
   minReplicaCount: 2
