@@ -3,7 +3,7 @@ replicas: 2
 port: 8083
 
 image:
-  repository: ""
+  repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/usage-service"
   tag: "latest"
 
 istio:
