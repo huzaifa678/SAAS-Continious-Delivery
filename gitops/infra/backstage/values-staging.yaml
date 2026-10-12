@@ -1,6 +1,7 @@
 ---
 image:
-  tag: "staging"
+  tag: "sha-af8fa18f"
+  repository: 533267178572.dkr.ecr.us-east-1.amazonaws.com/backstage-saas
 host: backstage.staging.freeeasycrypto.com
 replicas: 1
 gateway:
