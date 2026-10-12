@@ -2,7 +2,9 @@
 
 # --- Build the function runtime binary --------------------------------------
 # Uses the committed go.mod/go.sum; the resulting binary is fully static.
-FROM golang:1.24 AS build
+# Go 1.27 (>=1.27.2) — pulls the patched stdlib that clears the Trivy HIGH/CRITICAL
+# net/http, crypto/tls, crypto/x509 … CVEs embedded in the binary.
+FROM golang:1.27 AS build
 
 WORKDIR /fn
 ENV CGO_ENABLED=0
