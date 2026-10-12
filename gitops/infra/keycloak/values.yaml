@@ -11,6 +11,14 @@ gitopsContract:
     # secretName: saas/<env>/infra-contract   # set in values-<env>.eso.yaml
     secretStore: aws-secrets-manager
 
+# keycloak-postgres-secret (postgresql-user/password) — pulled from the infra
+# per-DB Secrets Manager secret via External Secrets. Needed in every env (DB
+# credentials, independent of the gitops-contract delivery mode).
+databaseSecret:
+  enabled: true
+  remoteName: keycloak-db-secret
+  secretStore: aws-secrets-manager
+
 keycloakx:
   fullnameOverride: keycloak
 
