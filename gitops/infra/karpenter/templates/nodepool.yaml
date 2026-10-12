@@ -46,7 +46,9 @@ spec:
   metadataOptions:
     httpEndpoint: enabled
     httpProtocolIPv6: disabled
-    httpPutResponseHopLimit: 1
+    # hop limit 2 so pods on the VPC CNI can reach IMDS (region/metadata lookups);
+    # hop limit 1 drops the reply. IMDSv2 still enforced via httpTokens: required.
+    httpPutResponseHopLimit: 2
     httpTokens: required
   blockDeviceMappings:
     - deviceName: /dev/xvda
