@@ -1,0 +1,16 @@
+# Staging autoscaling: enable the Karpenter NodePool + EC2NodeClass.
+#
+# settings.clusterName is set statically here (not via the eso Secret) because the
+# NodePool/EC2NodeClass are plain manifests whose subnet/SG discovery selectors
+# (karpenter.sh/discovery: <cluster>) must resolve at Helm render time — a manifest
+# cannot read the eso-delivered Secret. The controller still gets CLUSTER_NAME /
+# INTERRUPTION_QUEUE from the karpenter-contract Secret (values-staging.eso.yaml);
+# this static value only feeds the discovery tags and is a cluster identifier, not
+# a credential.
+karpenter:
+  settings:
+    clusterName: saas-eks-test
+
+nodePool:
+  enabled: true
+  instanceProfile: saas-eks-test-karpenter-node-profile
