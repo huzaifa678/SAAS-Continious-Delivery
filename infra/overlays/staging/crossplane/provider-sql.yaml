@@ -17,6 +17,52 @@ spec:
   revisionActivationPolicy: Automatic
   revisionHistoryLimit: 1
 
+# ─── agent ───────────────────────────────────────────────────────────────
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: rds-agent-admin
+  namespace: crossplane-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: rds-agent-admin
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      data:
+        data: |
+          postgresql://{{ .username }}:{{ .password }}@{{ .endpoint }}/{{ .db_name }}?sslmode=require
+        username: "{{ .username }}"
+        password: "{{ .password }}"
+        endpoint: "{{ .endpoint }}"
+        db_name: "{{ .db_name }}"
+  data:
+    - { secretKey: username, remoteRef: { key: saas-agent-db-secret, property: username } }
+    - { secretKey: password, remoteRef: { key: saas-agent-db-secret, property: password } }
+    - { secretKey: endpoint, remoteRef: { key: saas-agent-db-secret, property: endpoint } }
+    - { secretKey: db_name,  remoteRef: { key: saas-agent-db-secret, property: db_name  } }
+---
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: rds-agent
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  credentials:
+    source: PostgreSQLConnectionSecret
+    connectionSecretRef:
+      namespace: crossplane-system
+      name: rds-agent-admin
+  sslMode: require
+
 # ─── airflow ───────────────────────────────────────────────────────────────
 ---
 apiVersion: external-secrets.io/v1
@@ -61,6 +107,52 @@ spec:
     connectionSecretRef:
       namespace: crossplane-system
       name: rds-airflow-admin
+  sslMode: require
+
+# ─── backstage ───────────────────────────────────────────────────────────────
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: rds-backstage-admin
+  namespace: crossplane-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: rds-backstage-admin
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      data:
+        data: |
+          postgresql://{{ .username }}:{{ .password }}@{{ .endpoint }}/{{ .db_name }}?sslmode=require
+        username: "{{ .username }}"
+        password: "{{ .password }}"
+        endpoint: "{{ .endpoint }}"
+        db_name: "{{ .db_name }}"
+  data:
+    - { secretKey: username, remoteRef: { key: saas-backstage-db-secret, property: username } }
+    - { secretKey: password, remoteRef: { key: saas-backstage-db-secret, property: password } }
+    - { secretKey: endpoint, remoteRef: { key: saas-backstage-db-secret, property: endpoint } }
+    - { secretKey: db_name,  remoteRef: { key: saas-backstage-db-secret, property: db_name  } }
+---
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: rds-backstage
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  credentials:
+    source: PostgreSQLConnectionSecret
+    connectionSecretRef:
+      namespace: crossplane-system
+      name: rds-backstage-admin
   sslMode: require
 
 # ─── billing ───────────────────────────────────────────────────────────────
