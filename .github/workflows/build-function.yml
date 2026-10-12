@@ -101,8 +101,11 @@ jobs:
           RUNTIME_REF="${REGISTRY}/${FUNCTION}:runtime-${TAG}"
           PACKAGE_REF="${REGISTRY}/${FUNCTION}:${TAG}"
           cd functions/${FUNCTION}
-          # amazon-ecr-login already wrote ECR creds to ~/.docker/config.json,
-          # which the crossplane CLI's go-containerregistry keychain reads.
+          # `crossplane xpkg build --embed-runtime-image` resolves the runtime image
+          # from the LOCAL Docker daemon, not the registry. build-runtime pushed it
+          # straight to ECR (buildx, no local load) on a different runner, so pull it
+          # into this runner's daemon first (ecr-login already authenticated it).
+          docker pull "${RUNTIME_REF}"
           crossplane xpkg build \
             --package-root=package \
             --embed-runtime-image="${RUNTIME_REF}" \
@@ -127,13 +130,21 @@ jobs:
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Scan runtime image (fail on HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@0.28.0
+      - name: Trivy image scan (scan-before-push gate)
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ steps.ecr.outputs.registry }}/${{ matrix.function }}:runtime-${{ needs.build-runtime.outputs.tag }}
-          exit-code: '1'
-          severity: HIGH,CRITICAL
+          scan-type: image
+          image-ref: ${{ steps.ecr.outputs.url }}:sha-${{ github.sha }}
+          scanners: vuln
+          severity: CRITICAL,HIGH
           ignore-unfixed: true
+          exit-code: "1"
+          format: table
+        env:
+          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
+          TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db:1
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
   # main only: pin platform/functions/functions.yaml to the tag just pushed. The
   # renderer stamps that one tag onto BOTH function images. The ECR registry host
