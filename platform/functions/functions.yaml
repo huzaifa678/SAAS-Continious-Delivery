@@ -13,7 +13,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
 spec:
-  package: 000000000000.dkr.ecr.us-east-1.amazonaws.com/function-appdatabase:sha-0000000
+  package: 533267178572.dkr.ecr.us-east-1.amazonaws.com/function-appdatabase:sha-beed2243
   packagePullPolicy: IfNotPresent
   revisionActivationPolicy: Automatic
   revisionHistoryLimit: 1
@@ -27,7 +27,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
 spec:
-  package: 000000000000.dkr.ecr.us-east-1.amazonaws.com/function-appcache:sha-0000000
+  package: 533267178572.dkr.ecr.us-east-1.amazonaws.com/function-appcache:sha-beed2243
   packagePullPolicy: IfNotPresent
   revisionActivationPolicy: Automatic
   revisionHistoryLimit: 1
