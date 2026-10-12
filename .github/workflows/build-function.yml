@@ -113,6 +113,10 @@ jobs:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
           FUNCTION: ${{ matrix.function }}
           TAG: ${{ needs.build-runtime.outputs.tag }}
+          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
+          TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db:1
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           RUNTIME_REF="${REGISTRY}/${FUNCTION}:runtime-${TAG}"
@@ -129,12 +133,6 @@ jobs:
             --package-file=function.xpkg
           crossplane xpkg push -f function.xpkg "${PACKAGE_REF}"
           echo "pushed ${PACKAGE_REF}"
-
-        env:
-          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
-          TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db:1
-          TRIVY_USERNAME: ${{ github.actor }}
-          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
   # main only: pin platform/functions/functions.yaml to the tag just pushed. The
   # renderer stamps that one tag onto BOTH function images. The ECR registry host
