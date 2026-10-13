@@ -1,0 +1,11 @@
+# Git-files generator config for the flattened addons ApplicationSet.
+# Universal (app.yaml -> every env). These are cluster-scoped CRDs; the namespace
+# is only the Application's destination formality (nothing namespaced is created),
+# so it targets kube-system rather than creating an empty namespace.
+#
+# syncWave -5: earlier than every CRD consumer (cert-manager/external-dns/
+# nginx-gateway at -1) so that, once the addons appset gates on sync-wave
+# (RollingSync), the CRDs are applied first. Even without strict gating this app
+# is tiny and foundational, so the CRDs land quickly and dependents self-heal.
+namespace: kube-system
+syncWave: "-5"

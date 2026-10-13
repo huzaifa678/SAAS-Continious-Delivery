@@ -1,0 +1,12 @@
+---
+apiVersion: v2
+name: gateway-api-crds
+description: >-
+  Foundational Gateway API CRDs (gateway.networking.k8s.io). Owned by a single
+  early-wave Application so every consumer -- cert-manager (enableGatewayAPI),
+  external-dns (gateway-httproute/grpcroute sources) and the NGINX Gateway Fabric
+  controller -- can assume the CRDs already exist. Previously these shipped inside
+  the nginx-gateway chart's crds/, which coupled their availability to that one
+  app syncing and let dependents CrashLoop until it did.
+type: application
+version: 0.1.0
