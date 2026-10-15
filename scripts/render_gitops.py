@@ -81,6 +81,15 @@ def _host_only(endpoint: str) -> str:
     return endpoint.rsplit(":", 1)[0] if ":" in endpoint else endpoint
 
 
+def _bare_host(endpoint: str) -> str:
+    """Bare hostname for cilium's k8sServiceHost: drop the scheme, any path, and
+    any :port from the EKS API endpoint (e.g. https://abc.eks.amazonaws.com:443
+    -> abc.eks.amazonaws.com). Cilium wants host and port as separate values."""
+    host = endpoint.split("://", 1)[-1]  # drop https:// / http:// if present
+    host = host.split("/", 1)[0]         # drop any path
+    return host.rsplit(":", 1)[0] if ":" in host else host
+
+
 def render_keycloak_values(contract: dict) -> str:
     """Helm values setting the keycloak subchart's externalDatabase.host from the contract."""
     _require_version(contract)
@@ -112,7 +121,7 @@ def render_cilium_values(contract: dict) -> str:
     endpoint = cluster.get("eks_api_endpoint")
     if not endpoint:
         raise SystemExit("contract.cluster needs eks_api_endpoint")
-    body = _load_tpl("cilium-values.yaml.tpl").replace("__EKS_API_ENDPOINT__", endpoint)
+    body = _load_tpl("cilium-values.yaml.tpl").replace("__EKS_API_ENDPOINT__", _bare_host(endpoint))
     return BANNER + body
 
 

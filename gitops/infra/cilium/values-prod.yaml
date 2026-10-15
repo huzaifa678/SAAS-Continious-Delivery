@@ -1,4 +1,6 @@
-k8sServicePort: 443
+# Overrides for the `cilium` subchart (see values.yaml for why these nest here).
+cilium:
+  k8sServicePort: 443
 
-operator:
-  replicas: 2
+  operator:
+    replicas: 2

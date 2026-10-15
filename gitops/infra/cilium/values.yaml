@@ -1,20 +1,28 @@
-kubeProxyReplacement: true
+# Values for the Cilium umbrella chart. Everything for the real Cilium release
+# MUST live under the `cilium:` key: this chart's only content is its dependency
+# on the `cilium` subchart, and Helm passes values down to a subchart solely when
+# they are nested under that subchart's name. Top-level keys here reach only the
+# (template-less) parent chart and are silently dropped, which leaves Cilium on
+# its chart defaults (cluster-pool IPAM + VXLAN tunnel, pool 10.0.0.0/8 that
+# overlaps the VPC) instead of the aws-cni/native chaining mode below.
+cilium:
+  kubeProxyReplacement: true
 
-cni:
-  chainingMode: aws-cni
-  exclusive: false
+  cni:
+    chainingMode: aws-cni
+    exclusive: false
 
-routingMode: native
-enableIPv4Masquerade: false
+  routingMode: native
+  enableIPv4Masquerade: false
 
-operator:
-  replicas: 2
+  operator:
+    replicas: 2
 
-hubble:
-  enabled: true
-
-  relay:
+  hubble:
     enabled: true
 
-  ui:
-    enabled: true
+    relay:
+      enabled: true
+
+    ui:
+      enabled: true
