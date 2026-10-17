@@ -109,6 +109,52 @@ spec:
       name: rds-airflow-admin
   sslMode: require
 
+# ─── auth ───────────────────────────────────────────────────────────────
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: rds-auth-admin
+  namespace: crossplane-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: rds-auth-admin
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      data:
+        data: |
+          postgresql://{{ .username }}:{{ .password }}@{{ .endpoint }}/{{ .db_name }}?sslmode=require
+        username: "{{ .username }}"
+        password: "{{ .password }}"
+        endpoint: "{{ .endpoint }}"
+        db_name: "{{ .db_name }}"
+  data:
+    - { secretKey: username, remoteRef: { key: saas-auth-db-secret, property: username } }
+    - { secretKey: password, remoteRef: { key: saas-auth-db-secret, property: password } }
+    - { secretKey: endpoint, remoteRef: { key: saas-auth-db-secret, property: endpoint } }
+    - { secretKey: db_name,  remoteRef: { key: saas-auth-db-secret, property: db_name  } }
+---
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: rds-auth
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  credentials:
+    source: PostgreSQLConnectionSecret
+    connectionSecretRef:
+      namespace: crossplane-system
+      name: rds-auth-admin
+  sslMode: require
+
 # ─── backstage ───────────────────────────────────────────────────────────────
 ---
 apiVersion: external-secrets.io/v1
