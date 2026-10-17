@@ -1,0 +1,6 @@
+---
+apiVersion: v2
+name: argocd-ecr-credentials
+description: ArgoCD repository credential for the ECR OCI Helm registry, refreshed from a short-lived ECR token by External Secrets (ECRAuthorizationToken generator).
+type: application
+version: 0.1.0

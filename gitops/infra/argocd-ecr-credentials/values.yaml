@@ -1,0 +1,18 @@
+# ArgoCD repository credential for the ECR OCI Helm registry where the
+# microservice charts are pushed (see CHART-PUSH.md). Without it, ArgoCD fails to
+# pull oci://<registry>/helm charts with "basic credential not found" and the
+# microservice Applications sit at Unknown sync.
+#
+# The password is a SHORT-LIVED ECR token minted by the External Secrets
+# ECRAuthorizationToken generator (using the external-secrets controller's EKS
+# Pod Identity creds) and refreshed well inside its ~12h lifetime, so there is no
+# static credential to rotate.
+ecrHelmRepo:
+  # ECR registry host + the OCI repository path the charts live under. Same
+  # account/region across envs per the gitops contract; override per-env in
+  # values-<env>.yaml if it ever diverges.
+  registry: 533267178572.dkr.ecr.us-east-1.amazonaws.com
+  repoPath: helm
+  region: us-east-1
+  # Must stay comfortably under the ECR token's ~12h TTL.
+  refreshInterval: 1h

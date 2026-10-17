@@ -1,0 +1,7 @@
+# Git-files generator config for the flattened addons ApplicationSet.
+# Deploys into the argocd namespace: ArgoCD reads repository credentials from
+# Secrets labelled argocd.argoproj.io/secret-type=repository in its OWN namespace.
+# syncWave "0": after external-secrets (-1) so the ESO CRDs + controller exist;
+# the ExternalSecret then retries until the ECR token can be minted.
+namespace: argocd
+syncWave: "0"
