@@ -20,7 +20,8 @@ runtime Secret can feed an env var but cannot be looped over at Helm-template ti
 
 - **karpenter** `settings.clusterName` + `interruptionQueue` → `CLUSTER_NAME` /
   `INTERRUPTION_QUEUE` env from the `karpenter-contract` Secret.
-- **keycloak** (prod) DB host → `KC_DB_URL_HOST` env from the `keycloak-contract` Secret.
+- **keycloak** (staging + prod) DB host → `KC_DB_URL_HOST` env from the `keycloak-contract`
+  Secret. (dev stays on the in-cluster Postgres, so it has no keycloak eso file.)
 
 **Not in the toggle:**
 
@@ -74,7 +75,7 @@ A mode is expressed by *which file exists*. `scripts/check-delivery-mode.py`
 - **`render`**: no `values-<env>.eso.yaml` for karpenter/keycloak.
 - **`eso`**: no `values-<env>.generated.yaml` for karpenter/keycloak, and the
   required `values-<env>.eso.yaml` files exist (karpenter for every env; keycloak
-  for prod).
+  for staging + prod).
 
 If both (or neither) mode's files are present for an env, the guard fails the build.
 

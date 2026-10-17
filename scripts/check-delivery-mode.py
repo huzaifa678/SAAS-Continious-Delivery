@@ -27,11 +27,12 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VALID_MODES = ("render", "eso")
 
-# Charts whose per-env cluster-identity values the toggle governs. keycloak only
-# has an external DB host in prod, so its eso file is required for prod only.
+# Charts whose per-env cluster-identity values the toggle governs. keycloak uses an
+# external RDS DB host in staging and prod (dev stays on in-cluster Postgres), so its
+# eso file is required for those two envs.
 ESO_REQUIRED = {
     "karpenter": ("dev", "staging", "prod"),
-    "keycloak": ("prod",),
+    "keycloak": ("staging", "prod"),
 }
 
 

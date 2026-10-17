@@ -7,7 +7,7 @@ generated ones. See docs/gitops-contract-delivery-modes.md.
     scripts/set-delivery-mode.py --env dev --mode render
 
 render -> eso: writes gitops/infra/karpenter/values-<env>.eso.yaml (and keycloak
-for prod), removes the karpenter/keycloak values-<env>.generated.yaml, flips the
+for staging/prod), removes the karpenter/keycloak values-<env>.generated.yaml, flips the
 toggle, and runs the guard rail to self-verify.
 
 eso -> render: removes the eso value files and flips the toggle. The
@@ -82,7 +82,7 @@ keycloakx:
 # chart -> (eso file body, envs that get an eso file)
 ESO_CHARTS = {
     "karpenter": (KARPENTER_ESO, ("dev", "staging", "prod")),
-    "keycloak": (KEYCLOAK_ESO, ("prod",)),
+    "keycloak": (KEYCLOAK_ESO, ("staging", "prod")),
 }
 
 
