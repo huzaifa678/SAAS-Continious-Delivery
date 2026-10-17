@@ -1,0 +1,6 @@
+---
+apiVersion: v2
+name: storage
+description: Default gp3 StorageClass backed by the AWS EBS CSI driver (EKS 1.30+ ships no default SC).
+type: application
+version: 0.1.0

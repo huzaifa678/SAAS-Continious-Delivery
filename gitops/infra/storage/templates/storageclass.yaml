@@ -1,0 +1,18 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+  {{- if .Values.gp3.isDefault }}
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+  {{- end }}
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  encrypted: {{ .Values.gp3.encrypted | quote }}
+  fsType: {{ .Values.gp3.fsType | default "ext4" | quote }}
+# WaitForFirstConsumer is required on EBS: the volume is AZ-bound, so it must be
+# created in the AZ where the consuming pod is scheduled, not eagerly elsewhere.
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: {{ .Values.gp3.allowVolumeExpansion }}
+reclaimPolicy: {{ .Values.gp3.reclaimPolicy | default "Delete" }}

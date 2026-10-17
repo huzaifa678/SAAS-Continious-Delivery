@@ -1,0 +1,7 @@
+gp3:
+  # Mark this the cluster default so PVCs with no storageClassName bind to it.
+  isDefault: true
+  encrypted: "true"
+  fsType: ext4
+  reclaimPolicy: Delete
+  allowVolumeExpansion: true

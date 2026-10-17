@@ -1,0 +1,8 @@
+# Git-files generator config for the flattened addons ApplicationSet.
+# syncWave -4: the default StorageClass must exist before any PVC-backed addon
+# (Elasticsearch, Loki, Prometheus) tries to bind. EKS 1.30+ ships no default
+# StorageClass and the aws-ebs-csi-driver addon does not create one, so without
+# this every PVC sits Pending. Cluster-scoped object — kube-system is only the
+# Application's destination formality (nothing namespaced is created).
+namespace: kube-system
+syncWave: "-4"
