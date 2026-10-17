@@ -61,10 +61,12 @@ while IFS= read -r chart; do
     tag="${rel//\//-}-${env}"
     pr="${WORK}/gitops-${tag}"
     cp -r "${prbase}" "${pr}"
-    vfs=(-f "${dir}/values.yaml")
+    # Only pass value files that exist.
+    vfs=()
+    [[ -f "${dir}/values.yaml" ]] && vfs+=(-f "${dir}/values.yaml")
     [[ -f "${dir}/values-${env}.yaml" ]] && vfs+=(-f "${dir}/values-${env}.yaml")
     [[ -f "${dir}/values-${env}.generated.yaml" ]] && vfs+=(-f "${dir}/values-${env}.generated.yaml")
-    helm template "${addon}" "${dir}" "${vfs[@]}" --namespace "${ns}" --include-crds \
+    helm template "${addon}" "${dir}" ${vfs[@]+"${vfs[@]}"} --namespace "${ns}" --include-crds \
       > "${pr}/base/rendered.yaml"
     ( cd "${pr}/base" && kustomize edit add resource rendered.yaml )
     out="${WORK}/gitops-${tag}.yaml"
