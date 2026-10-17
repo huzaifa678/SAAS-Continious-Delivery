@@ -89,30 +89,32 @@ jobs:
           python3 scripts/render_gitops.py --contract "$contract" \
             --functions-out platform/functions/functions.yaml \
             --function-tag "${fn_tag:-latest}"
-          # Cluster-identity Helm values — `render` mode only. In `eso` mode these
-          # come from the karpenter-contract / keycloak-contract Secrets at runtime.
+          # cilium k8sServiceHost and the OTel/velero endpoints are contract-derived
+          # rendered in both modes
+          python3 scripts/render_gitops.py --contract "$contract" \
+            --cilium-out "gitops/infra/cilium/values-${CD_ENV}.generated.yaml"
+          # OTel collector endpoints ,only when the observability contract is
+          # present. Its `stack` (grafana|elk) selects which collector chart the
+          # generated values land in; the other stack has no app on this cluster.
+          obs="contracts/gitops-contract-observability.${CD_ENV}.json"
+          if [ -f "$obs" ]; then
+            stack="$(jq -r '.observability.stack // empty' "$obs")"
+            if [ -n "$stack" ]; then
+              python3 scripts/render_gitops.py --obs-contract "$obs" \
+                --otel-out "gitops/observability/${stack}/otel-collector/values-${CD_ENV}.generated.yaml"
+            fi
+            # Velero is a single addon (not stack-split) — render its backup bucket.
+            python3 scripts/render_gitops.py --obs-contract "$obs" \
+              --velero-out "gitops/infra/velero/values-${CD_ENV}.generated.yaml"
+          fi
+          # Cluster-identity Helm values — `render` mode only. In `eso` mode the
+          # karpenter-contract / keycloak-contract Secrets deliver these at runtime.
           if [ "$MODE" = "render" ]; then
             python3 scripts/render_gitops.py --contract "$contract" \
               --karpenter-out "gitops/infra/karpenter/values-${CD_ENV}.generated.yaml"
-            python3 scripts/render_gitops.py --contract "$contract" \
-              --cilium-out "gitops/infra/cilium/values-${CD_ENV}.generated.yaml"
-            # OTel collector endpoints — only when the observability contract is
-            # present. Its `stack` (grafana|elk) selects which collector chart the
-            # generated values land in; the other stack has no app on this cluster.
-            obs="contracts/gitops-contract-observability.${CD_ENV}.json"
-            if [ -f "$obs" ]; then
-              stack="$(jq -r '.observability.stack // empty' "$obs")"
-              if [ -n "$stack" ]; then
-                python3 scripts/render_gitops.py --obs-contract "$obs" \
-                  --otel-out "gitops/observability/${stack}/otel-collector/values-${CD_ENV}.generated.yaml"
-              fi
-              # Velero is a single addon (not stack-split) — render its backup bucket.
-              python3 scripts/render_gitops.py --obs-contract "$obs" \
-                --velero-out "gitops/infra/velero/values-${CD_ENV}.generated.yaml"
-            fi
-            # Keycloak values are only rendered where Keycloak points at the RDS
-            # endpoint directly (prod). dev/staging run Keycloak on the in-cluster
-            # Postgres, so they do not consume a generated keycloak values file.
+            # Keycloak render values exist only for an RDS-direct env in render mode
+            # (prod). staging also uses RDS, but via eso (values-staging.eso.yaml);
+            # dev runs the in-cluster Postgres, so neither consumes a generated file.
             if [ "$CD_ENV" = "prod" ]; then
               python3 scripts/render_gitops.py --contract "$contract" \
                 --keycloak-out "gitops/infra/keycloak/values-prod.generated.yaml"
@@ -130,6 +132,14 @@ jobs:
           git add "contracts/gitops-contract.${CD_ENV}.json" \
             "infra/overlays/${CD_ENV}/crossplane/provider-sql.yaml" \
             "platform/functions/functions.yaml"
+          # cilium/otel/velero generated values are rendered in both modes (above),
+          # so commit whichever were produced for this env, regardless of MODE.
+          for f in \
+            "gitops/infra/cilium/values-${CD_ENV}.generated.yaml" \
+            "gitops/infra/velero/values-${CD_ENV}.generated.yaml" \
+            gitops/observability/*/otel-collector/values-${CD_ENV}.generated.yaml ; do
+            [ -f "$f" ] && git add "$f"
+          done
           if [ "$MODE" = "render" ]; then
             git add "gitops/infra/karpenter/values-${CD_ENV}.generated.yaml"
             [ "$CD_ENV" = "prod" ] && git add "gitops/infra/keycloak/values-prod.generated.yaml" || true
