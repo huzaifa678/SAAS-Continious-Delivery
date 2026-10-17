@@ -1,0 +1,10 @@
+---
+apiVersion: v2
+name: velero
+description: Velero cluster backup/restore to S3, with CSI (EBS) volume snapshots and EKS Pod Identity auth.
+type: application
+version: 0.1.0
+dependencies:
+  - name: velero
+    version: 12.2.1
+    repository: https://vmware-tanzu.github.io/helm-charts

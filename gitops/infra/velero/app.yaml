@@ -1,0 +1,6 @@
+# Git-files generator config for the flattened addons ApplicationSet.
+# syncWave -1: after the gp3 StorageClass (-4) and snapshot-controller (-3) it
+# depends on, and alongside the other platform addons. Installs the Velero
+# server + its CRDs into the `velero` namespace.
+namespace: velero
+syncWave: "-1"

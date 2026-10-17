@@ -1,0 +1,53 @@
+# Umbrella over vmware-tanzu/velero (app v1.18.2). Values MUST nest under the
+# subchart name `velero:` — top-level keys would reach only this (template-less)
+# parent chart and be silently ignored.
+#
+# backupStorageLocation.bucket + config.region are filled per-env by
+# values-<env>.generated.yaml, rendered from the observability gitops_contract
+# (the S3 bucket + region come from Terraform). Empty here so `helm template`
+# still works without the generated file.
+velero:
+  # S3 object-store plugin (matches app v1.18.x). Writes backup data to the bucket.
+  initContainers:
+    - name: velero-plugin-for-aws
+      image: velero/velero-plugin-for-aws:v1.14.0
+      imagePullPolicy: IfNotPresent
+      volumeMounts:
+        - mountPath: /target
+          name: plugins
+
+  # AWS creds come from EKS Pod Identity (no secret, no IRSA annotation). The
+  # Terraform-side aws_eks_pod_identity_association binds velero/velero -> role.
+  credentials:
+    useSecret: false
+
+  serviceAccount:
+    server:
+      create: true
+      name: velero   # must equal the Pod Identity association's service_account
+
+  # Volume snapshots are done via CSI (the labeled EBS VolumeSnapshotClass from the
+  # snapshot-controller addon); CSI is built into Velero 1.18 and needs no flag.
+  # snapshotsEnabled only controls the *native* VolumeSnapshotLocation CRD, which
+  # the native aws snapshotter can't use for CSI-provisioned EBS volumes — so off.
+  snapshotsEnabled: false
+  deployNodeAgent: false   # not using filesystem backup (kopia); CSI block snapshots instead
+
+  configuration:
+    backupStorageLocation:
+      - name: default
+        provider: aws
+        bucket: ""        # set per-env (generated)
+        default: true
+        config:
+          region: ""      # set per-env (generated)
+
+  # No automated backups until you define one, e.g.:
+  #   schedules:
+  #     daily:
+  #       schedule: "0 3 * * *"
+  #       template:
+  #         ttl: "720h"              # 30d retention
+  #         snapshotVolumes: true
+  #         includedNamespaces: ["*"]
+  schedules: {}
