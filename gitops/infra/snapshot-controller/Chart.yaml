@@ -1,0 +1,10 @@
+---
+apiVersion: v2
+name: snapshot-controller
+description: CSI external-snapshotter controller + VolumeSnapshot CRDs + an EBS VolumeSnapshotClass for Velero CSI backups.
+type: application
+version: 0.1.0
+dependencies:
+  - name: snapshot-controller
+    version: 5.4.0
+    repository: https://piraeus.io/helm-charts/

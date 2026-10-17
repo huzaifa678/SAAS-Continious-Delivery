@@ -1,0 +1,7 @@
+# Git-files generator config for the flattened addons ApplicationSet.
+# syncWave -3: after the gp3 StorageClass (-4), before Velero (-1). Provides the
+# VolumeSnapshot CRDs + controller + EBS VolumeSnapshotClass that Velero's CSI
+# backups depend on. Cluster-scoped CRDs/controller — kube-system is the
+# Application's destination.
+namespace: kube-system
+syncWave: "-3"

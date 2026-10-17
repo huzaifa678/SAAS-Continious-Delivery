@@ -1,0 +1,22 @@
+# Umbrella over piraeus/snapshot-controller (external-snapshotter v8.7.0). Values
+# MUST nest under the subchart name `snapshot-controller:` — top-level keys would
+# reach only this (template-less) parent chart and be ignored.
+snapshot-controller:
+  installCRDs: true          # VolumeSnapshot / VolumeSnapshotContent / VolumeSnapshotClass CRDs (EKS ships none)
+  controller:
+    enabled: true
+    replicaCount: 1
+  webhook:
+    enabled: false           # optional group-snapshot conversion webhook; needs cert-manager, not required here
+
+  # EBS VolumeSnapshotClass, labeled so Velero's built-in CSI support selects it.
+  # Retain: the underlying EBS snapshot is not deleted by the CSI controller when
+  # the VolumeSnapshot object goes away — Velero manages backup/snapshot lifecycle.
+  volumeSnapshotClasses:
+    - name: ebs-csi-snapclass
+      driver: ebs.csi.aws.com
+      deletionPolicy: Retain
+      labels:
+        velero.io/csi-volumesnapshot-class: "true"
+      annotations:
+        snapshot.storage.kubernetes.io/is-default-class: "true"
