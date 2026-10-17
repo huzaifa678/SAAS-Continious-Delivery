@@ -50,7 +50,15 @@ def _read_mode(path):
 
 
 def _generated_files(env):
-    return sorted(glob.glob(os.path.join(REPO, "gitops", "infra", "*", f"values-{env}.generated.yaml")))
+    # Only the toggle-governed charts count as a "render-mode leak" in eso mode.
+    # cilium/velero (and the observability otel-collector) also have contract-
+    # generated values, but they are NOT governed by the toggle — they render in
+    # BOTH modes (see render-gitops.yml), so their generated files are expected to
+    # coexist with eso and must not fail the guard.
+    files = []
+    for chart in ESO_REQUIRED:
+        files += glob.glob(os.path.join(REPO, "gitops", "infra", chart, f"values-{env}.generated.yaml"))
+    return sorted(files)
 
 
 def _eso_files(env):
