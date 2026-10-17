@@ -1,0 +1,108 @@
+name: build-logstash
+
+# Builds the custom Logstash image (stock elastic/logstash + the AWS MSK IAM auth
+# uber-jar on the classpath), scans it, pushes it to the ECR repo `logstash-msk`,
+# then renders the elk Logstash values-<env>.generated.yaml to reference it and
+# commits them. Fixes the ImagePullBackOff from the unfilled LOGSTASH_MSK_IMAGE /
+# LOGSTASH_MSK_TAG placeholders. The ECR repo is created by infra (05-ecr).
+
+on:
+  pull_request:
+    paths:
+      - 'gitops/observability/elk/logstash/Dockerfile'
+      - '.github/workflows/build-logstash.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'gitops/observability/elk/logstash/Dockerfile'
+      - '.github/workflows/build-logstash.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write   # commit the rendered values-<env>.generated.yaml
+
+env:
+  AWS_REGION: us-east-1
+  IMAGE: logstash-msk
+  CONTEXT: gitops/observability/elk/logstash
+  # elk runs in these CD envs; render a generated values file per env.
+  ELK_ENVS: "staging prod"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image tag
+        id: meta
+        run: echo "tag=sha-$(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+
+      # Scan-before-push gate: build into the local daemon (load, NOT push), scan,
+      # and only push if the scan passes — a vulnerable image never reaches ECR.
+      - name: Build image (load locally, do not push yet)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.CONTEXT }}
+          push: false
+          load: true
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=${{ env.IMAGE }}
+          cache-to: type=gha,mode=max,scope=${{ env.IMAGE }}
+
+      - name: Trivy scan (gate — blocks the push on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ steps.ecr.outputs.registry }}/${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
+      - name: Push image (only after the scan passes)
+        run: docker push "${{ steps.ecr.outputs.registry }}/${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}"
+
+      # Render the elk Logstash values for each env from the pushed image, so
+      # ArgoCD picks up a concrete image instead of the placeholder.
+      - name: Render Logstash values
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          for env in $ELK_ENVS; do
+            python3 scripts/render_gitops.py \
+              --registry "$REGISTRY" --logstash-tag "$TAG" \
+              --logstash-out "gitops/observability/elk/logstash/values-${env}.generated.yaml"
+          done
+
+      - name: Commit rendered values
+        if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add gitops/observability/elk/logstash/values-*.generated.yaml
+          if git diff --cached --quiet; then
+            echo "no change to Logstash values."
+          else
+            git commit -m "logstash: pin image ${IMAGE}:${{ steps.meta.outputs.tag }} [skip ci]"
+            git push
+          fi
