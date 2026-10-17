@@ -32,8 +32,8 @@ spec:
         - name: backstage
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          # Matches the SAAS-IDP Dockerfile CMD (base config + prod overlay).
           args:
+            - "node"
             - "packages/backend"
             - "--config"
             - "app-config.yaml"
