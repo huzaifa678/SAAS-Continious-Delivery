@@ -29,8 +29,8 @@ resources:
 # substitutes them at config load, same as the baked files.
 config:
   enabled: true
-  # Must contain kubectl + a POSIX shell; overridable per-env.
-  image: registry.k8s.io/kubectl:v1.31.1
+  # alpine/k8s, which carries kubectl on top of a BusyBox shell.
+  image: alpine/k8s:1.31.1
   backoffLimit: 3
   activeDeadlineSeconds: 300
   ttlSecondsAfterFinished: 1800
