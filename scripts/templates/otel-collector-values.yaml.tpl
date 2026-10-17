@@ -1,0 +1,3 @@
+region: __REGION__
+prometheusEndpoint: __PROMETHEUS_ENDPOINT__
+opensearchEndpoint: __OPENSEARCH_ENDPOINT__

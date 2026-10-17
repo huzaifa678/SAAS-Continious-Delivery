@@ -51,6 +51,18 @@ jobs:
           mv contracts/.contract.src.json "contracts/gitops-contract.${CD_ENV}.json"
           echo "CD_ENV=${CD_ENV}" >> "$GITHUB_ENV"
           echo "gitops contract: infra env '${INFRA_ENV}' -> CD env '${CD_ENV}'"
+          # Observability contract (AMP/OpenSearch endpoints) is published separately
+          # by 40-observability — a later layer than the main contract. Optional:
+          # absent until that layer has applied, in which case otel render is skipped.
+          if aws ssm get-parameter \
+               --name "/saas/${INFRA_ENV}/gitops-contract-observability" \
+               --with-decryption --query Parameter.Value --output text \
+               > "contracts/gitops-contract-observability.${CD_ENV}.json" 2>/dev/null; then
+            echo "observability contract fetched."
+          else
+            rm -f "contracts/gitops-contract-observability.${CD_ENV}.json"
+            echo "no observability contract yet (otel-collector render will be skipped)."
+          fi
 
       - name: Read delivery mode
         id: mode
@@ -84,6 +96,20 @@ jobs:
               --karpenter-out "gitops/infra/karpenter/values-${CD_ENV}.generated.yaml"
             python3 scripts/render_gitops.py --contract "$contract" \
               --cilium-out "gitops/infra/cilium/values-${CD_ENV}.generated.yaml"
+            # OTel collector endpoints — only when the observability contract is
+            # present. Its `stack` (grafana|elk) selects which collector chart the
+            # generated values land in; the other stack has no app on this cluster.
+            obs="contracts/gitops-contract-observability.${CD_ENV}.json"
+            if [ -f "$obs" ]; then
+              stack="$(jq -r '.observability.stack // empty' "$obs")"
+              if [ -n "$stack" ]; then
+                python3 scripts/render_gitops.py --obs-contract "$obs" \
+                  --otel-out "gitops/observability/${stack}/otel-collector/values-${CD_ENV}.generated.yaml"
+              fi
+              # Velero is a single addon (not stack-split) — render its backup bucket.
+              python3 scripts/render_gitops.py --obs-contract "$obs" \
+                --velero-out "gitops/infra/velero/values-${CD_ENV}.generated.yaml"
+            fi
             # Keycloak values are only rendered where Keycloak points at the RDS
             # endpoint directly (prod). dev/staging run Keycloak on the in-cluster
             # Postgres, so they do not consume a generated keycloak values file.

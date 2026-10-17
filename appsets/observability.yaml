@@ -46,6 +46,8 @@ spec:
           valueFiles:
             - values.yaml
             - 'values-{{.metadata.labels.env}}.yaml'
+            # Rendered from the observability gitops_contract (otel-collector endpoints).
+            - 'values-{{.metadata.labels.env}}.generated.yaml'
           # Kustomize post-renderer (path mirrors the chart dir under post-renderer/).
           postRenderer:
             kustomize:

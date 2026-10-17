@@ -125,6 +125,71 @@ def render_cilium_values(contract: dict) -> str:
     return BANNER + body
 
 
+def render_otel_values(obs_contract: dict) -> str:
+    """Helm values for the OTel collector (region + AMP/OpenSearch endpoints).
+
+    Sourced from the observability contract published by 40-observability to
+    /saas/<env>/gitops-contract-observability — a layer later than the main
+    contract, because the AMP workspace and OpenSearch domain are created there.
+    """
+    _require_version(obs_contract)
+    obs = obs_contract.get("observability") or {}
+    region = obs.get("region")
+    prometheus = obs.get("prometheus_endpoint")
+    if not region or not prometheus:
+        raise SystemExit("observability contract needs observability.region and .prometheus_endpoint")
+    body = (
+        _load_tpl("otel-collector-values.yaml.tpl")
+        .replace("__REGION__", region)
+        .replace("__PROMETHEUS_ENDPOINT__", prometheus)
+        .replace("__OPENSEARCH_ENDPOINT__", obs.get("opensearch_endpoint") or "")
+    )
+    return BANNER + body
+
+
+def render_logstash_values(contract: dict, tag: str, registry: str = "") -> str:
+    """Helm values pointing the elk Logstash chart at the custom MSK-IAM image.
+
+    The image is <registry>/logstash-msk:<tag>, built and pushed by the CD repo's
+    build-logstash workflow. Registry comes from the contract's registry.url (or
+    an explicit --registry, which the build workflow passes from its ECR login).
+    """
+    if not registry:
+        _require_version(contract)
+        registry = (contract.get("registry") or {}).get("url")
+    if not registry:
+        raise SystemExit("no registry: pass --registry or a contract with registry.url")
+    if not tag:
+        raise SystemExit("a logstash image --logstash-tag is required")
+    body = (
+        _load_tpl("logstash-values.yaml.tpl")
+        .replace("__IMAGE__", f"{registry}/logstash-msk")
+        .replace("__TAG__", tag)
+    )
+    return BANNER + body
+
+
+def render_velero_values(obs_contract: dict) -> str:
+    """Helm values pointing Velero's BackupStorageLocation at the S3 backup bucket.
+
+    Bucket + region come from the observability contract's `backup` block
+    (Terraform creates the bucket + Pod Identity role in 40-observability).
+    """
+    _require_version(obs_contract)
+    obs = obs_contract.get("observability") or {}
+    backup = obs.get("backup") or {}
+    bucket = backup.get("bucket")
+    region = obs.get("region")
+    if not bucket or not region:
+        raise SystemExit("observability contract needs observability.backup.bucket and observability.region")
+    body = (
+        _load_tpl("velero-values.yaml.tpl")
+        .replace("__BUCKET__", bucket)
+        .replace("__REGION__", region)
+    )
+    return BANNER + body
+
+
 def render_functions(contract: dict, tag: str, registry: str = "") -> str:
     """Crossplane Function install manifest with the function-appdatabase image.
 
@@ -161,6 +226,11 @@ def main() -> None:
     parser.add_argument("--keycloak-out", help="keycloak values-<env>.generated.yaml output file")
     parser.add_argument("--karpenter-out", help="karpenter values-<env>.generated.yaml output file")
     parser.add_argument("--cilium-out", help="cilium values-<env>.generated.yaml output file")
+    parser.add_argument("--otel-out", help="otel-collector values-<env>.generated.yaml output file (requires --obs-contract)")
+    parser.add_argument("--obs-contract", help="Path to the observability gitops-contract JSON (for --otel-out)")
+    parser.add_argument("--logstash-out", help="logstash values-<env>.generated.yaml output file")
+    parser.add_argument("--logstash-tag", help="logstash-msk image tag (e.g. sha-abc1234)")
+    parser.add_argument("--velero-out", help="velero values-<env>.generated.yaml output file (requires --obs-contract)")
     parser.add_argument("--functions-out", help="crossplane functions install output file")
     parser.add_argument("--function-tag", help="function-appdatabase image tag (e.g. sha-abc1234)")
     parser.add_argument("--registry", default="", help="ECR registry host override (default: contract registry.url)")
@@ -171,8 +241,12 @@ def main() -> None:
             contract = json.load(handle)
     elif args.functions_out and args.registry:
         contract = {}  # functions render with an explicit --registry needs no contract
+    elif (args.otel_out or args.velero_out) and args.obs_contract:
+        contract = {}  # these render only from the observability contract
+    elif args.logstash_out and args.registry:
+        contract = {}  # logstash render with an explicit --registry needs no contract
     else:
-        raise SystemExit("--contract is required (except for --functions-out with --registry)")
+        raise SystemExit("--contract is required (except --functions-out/--logstash-out with --registry, or --otel-out with --obs-contract)")
 
     wrote_any = False
     if args.out:
@@ -186,6 +260,23 @@ def main() -> None:
         wrote_any = True
     if args.cilium_out:
         _write(args.cilium_out, render_cilium_values(contract), "cilium values")
+        wrote_any = True
+    if args.otel_out:
+        if not args.obs_contract:
+            raise SystemExit("--otel-out requires --obs-contract")
+        with open(args.obs_contract) as handle:
+            obs_contract = json.load(handle)
+        _write(args.otel_out, render_otel_values(obs_contract), "otel collector values")
+        wrote_any = True
+    if args.velero_out:
+        if not args.obs_contract:
+            raise SystemExit("--velero-out requires --obs-contract")
+        with open(args.obs_contract) as handle:
+            obs_contract = json.load(handle)
+        _write(args.velero_out, render_velero_values(obs_contract), "velero values")
+        wrote_any = True
+    if args.logstash_out:
+        _write(args.logstash_out, render_logstash_values(contract, args.logstash_tag, args.registry), "logstash values")
         wrote_any = True
     if args.functions_out:
         _write(
