@@ -1,0 +1,20 @@
+# region + prometheusEndpoint are supplied per-env by values-<env>.generated.yaml,
+# rendered from the observability gitops_contract (40-observability). Placeholders
+# below keep `helm template` working without the generated file.
+region: us-east-1
+prometheusEndpoint: ""
+opensearchEndpoint: ""   # unused on the grafana stack
+
+image:
+  repository: public.ecr.aws/aws-observability/aws-otel-collector
+  tag: v0.43.1
+
+replicas: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi

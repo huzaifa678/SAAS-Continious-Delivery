@@ -1,0 +1,7 @@
+# Git-files generator config for the flattened observability ApplicationSet.
+# syncWave 2 so the collector starts after the stack backends. Its AWS IAM role
+# and Pod Identity binding (monitoring/otel-collector) are created by the infra
+# repo's 40-observability layer; endpoints arrive via
+# values-<env>.generated.yaml rendered from the observability gitops_contract.
+namespace: monitoring
+syncWave: "2"

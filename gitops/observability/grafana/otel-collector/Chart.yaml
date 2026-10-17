@@ -1,0 +1,6 @@
+---
+apiVersion: v2
+name: otel-collector
+description: ADOT collector (grafana stack) — central OTLP ingest exporting to AMP, X-Ray and CloudWatch Logs.
+type: application
+version: 0.1.0
