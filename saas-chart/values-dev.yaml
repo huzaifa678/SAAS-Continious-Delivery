@@ -42,8 +42,10 @@ opentelemetry-collector:
     receivers:
       kafka/logs:
         brokers: ["${env:KAFKA_BOOTSTRAP_SERVERS}"]
-        topic: otel-logs
-        encoding: otlp_json
+        # Per-signal block: recent kafka receiver versions reject top-level topic/encoding.
+        logs:
+          topic: otel-logs
+          encoding: otlp_json
         group_id: otel-logs-loki
         auth:
           sasl:
@@ -61,8 +63,10 @@ opentelemetry-collector:
           insecure: true
       kafka/logs:
         brokers: ["${env:KAFKA_BOOTSTRAP_SERVERS}"]
-        topic: otel-logs
-        encoding: otlp_json
+        # Per-signal block: recent kafka exporter versions reject top-level topic/encoding.
+        logs:
+          topic: otel-logs
+          encoding: otlp_json
         auth:
           sasl:
             mechanism: AWS_MSK_IAM

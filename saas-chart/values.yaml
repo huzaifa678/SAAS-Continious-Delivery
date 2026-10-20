@@ -127,10 +127,13 @@ opentelemetry-collector:
       # logstash addon), so they do not enable this receiver.
       kafka/logs:
         brokers: ["${env:KAFKA_BOOTSTRAP_SERVERS}"]
-        topic: otel-logs
-        # otlp_json (not otlp_proto) so the same topic can also be consumed by
-        # Logstash's json codec in staging/prod.
-        encoding: otlp_json
+        # topic/encoding moved under a per-signal `logs` block in recent kafka
+        # receiver/exporter versions; the top-level keys now error as invalid.
+        logs:
+          topic: otel-logs
+          # otlp_json (not otlp_proto) so the same topic can also be consumed by
+          # Logstash's json codec in staging/prod.
+          encoding: otlp_json
         group_id: otel-logs-loki
         auth:
           sasl:
@@ -159,8 +162,9 @@ opentelemetry-collector:
       # emits OTLP, so this single change buffers logs for all of them at once.
       kafka/logs:
         brokers: ["${env:KAFKA_BOOTSTRAP_SERVERS}"]
-        topic: otel-logs
-        encoding: otlp_json
+        logs:
+          topic: otel-logs
+          encoding: otlp_json
         auth:
           sasl:
             mechanism: AWS_MSK_IAM
