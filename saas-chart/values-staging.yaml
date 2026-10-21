@@ -6,7 +6,7 @@ istio:
   revision: ""
 image:
   repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/api-gateway"
-  tag: "sha-c27eadd478e320e6f3d878c17f803d36047e0629"
+  tag: "sha-eef29ee0bf3fe1d1fb864d5ee3488740f0e00744"
 apiGateway:
   replicas: 2
   circuitBreaking:
