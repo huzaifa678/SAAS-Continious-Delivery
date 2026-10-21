@@ -21,3 +21,24 @@ karpenter:
 nodePool:
   enabled: false
   instanceProfile: ""
+
+# Dedicated NodePool for heavy stateful data/observability workloads (ELK).
+# Tainted dedicated=data:NoSchedule + labelled workload=data, so only pods that
+# BOTH tolerate the taint and select the label land here; app/microservice pods
+# stay on `default`. Reuses the `default` EC2NodeClass, so enabling this requires
+# nodePool.enabled. Enabled per env in values-<env>.yaml.
+dataNodePool:
+  enabled: false
+  capacityTypes: ["on-demand"]
+  limits: { cpu: "16", memory: 128Gi }
+
+# Soft-isolation NodePool for bursty, ephemeral batch workloads (Airflow
+# KubernetesExecutor task pods + the DAGs' ETL job pods). Spot + scale-to-zero,
+# labelled workload=batch but with NO taint: Airflow TARGETS it via
+# nodeSelector(workload=batch), yet nothing is kept off it, so a pod that lacks the
+# selector (e.g. a DAG's KubernetesPodOperator pod) can never be stranded. Reuses
+# the `default` EC2NodeClass, so enabling this requires nodePool.enabled.
+batchNodePool:
+  enabled: false
+  capacityTypes: ["spot", "on-demand"]
+  limits: { cpu: "32", memory: 128Gi }

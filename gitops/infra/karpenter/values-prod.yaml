@@ -1,3 +1,17 @@
 nodePool:
   enabled: true
   instanceProfile: saas-eks-prod-karpenter-node-profile
+
+# Dedicated data/observability pool (ELK). Prod: on-demand only and a larger
+# ceiling than staging (3-node HA Elasticsearch + heavier Logstash).
+dataNodePool:
+  enabled: true
+  capacityTypes: ["on-demand"]
+  limits: { cpu: "64", memory: 512Gi }
+
+# Soft-isolation batch pool (Airflow). Prod: on-demand for predictable ETL runs
+# (trade spot savings for reliability) and a larger ceiling than staging.
+batchNodePool:
+  enabled: true
+  capacityTypes: ["on-demand"]
+  limits: { cpu: "64", memory: 256Gi }

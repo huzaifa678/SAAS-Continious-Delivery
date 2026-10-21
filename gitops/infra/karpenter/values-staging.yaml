@@ -14,3 +14,11 @@ karpenter:
 nodePool:
   enabled: true
   instanceProfile: saas-eks-test-karpenter-node-profile
+
+# Dedicated data/observability pool for the ELK stack (see templates/nodepool.yaml).
+dataNodePool:
+  enabled: true
+
+# Soft-isolation batch pool for Airflow (see templates/nodepool.yaml).
+batchNodePool:
+  enabled: true
