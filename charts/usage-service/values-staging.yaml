@@ -2,7 +2,7 @@
 replicas: 2
 image:
   repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/usage-service"
-  tag: "airflow-sha-d1fcb5427d48af2e7ef093701ba03c5284093ada"
+  tag: "airflow-sha-53503efe2534b209d604259017db0990842db39c"
 istio:
   enabled: true
   revision: ""
