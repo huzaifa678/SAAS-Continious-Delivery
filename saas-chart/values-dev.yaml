@@ -42,9 +42,10 @@ opentelemetry-collector:
     receivers:
       kafka/logs:
         brokers: ["${env:KAFKA_BOOTSTRAP_SERVERS}"]
-        # Per-signal block: recent kafka receiver versions reject top-level topic/encoding.
+        # Per-signal block: the kafka *receiver* takes `topics` (a LIST), unlike
+        # the exporter's singular `topic`.
         logs:
-          topic: otel-logs
+          topics: [otel-logs]
           encoding: otlp_json
         group_id: otel-logs-loki
         auth:
