@@ -34,7 +34,9 @@ spec:
       sources:
         - repoURL: oci://533267178572.dkr.ecr.us-east-1.amazonaws.com/helm
           chart: '{{.path.basename}}'
-          targetRevision: 0.1.0
+          # Floating SemVer range: each app auto-resolves the latest 0.x of its own
+          # chart
+          targetRevision: ">=0.1.0 <1.0.0"
           helm:
             releaseName: '{{.path.basename}}'
             valueFiles:
