@@ -53,6 +53,9 @@ spec:
           allowEmpty: false
         syncOptions:
           - CreateNamespace=true
+          # Server-side apply: avoids the client-side 3-way-merge + last-applied-
+          # configuration annotation issues. Matches the addons/observability appsets.
+          - ServerSideApply=true
           - PruneLast=true
           - ApplyOutOfSyncOnly=true
       ignoreDifferences:

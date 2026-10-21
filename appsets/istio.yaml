@@ -44,5 +44,8 @@ spec:
           allowEmpty: false
         syncOptions:
           - CreateNamespace=true
+          # Server-side apply: istio ships very large CRDs that overflow the
+          # client-side last-applied-configuration annotation (">256 KiB").
+          - ServerSideApply=true
           - PruneLast=true
           - ApplyOutOfSyncOnly=true

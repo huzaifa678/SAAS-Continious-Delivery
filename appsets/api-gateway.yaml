@@ -41,6 +41,7 @@ spec:
           allowEmpty: false
         syncOptions:
           - CreateNamespace=true
+          - ServerSideApply=true
           - PruneLast=true
           - ApplyOutOfSyncOnly=true
           - FailOnSharedResource=true
