@@ -31,16 +31,7 @@ opentelemetry-collector:
     - name: KAFKA_BOOTSTRAP_SERVERS
       value: BOOTSTRAP_BROKERS
   config:
-    # staging drains Kafka to Elasticsearch via the Logstash addon, so the base
-    # values' dev-only in-collector consumer (Kafka -> Loki) is disabled here.
-    receivers:
-      kafka/logs: null
     exporters:
-      # Disable the dev-only exporters inherited from values.yaml (only the
-      # Kafka -> Loki consumer used them).
-      otlp/tempo: null
-      otlphttp/loki: null
-      debug: null
       otlp/elastic:
         endpoint: http://monitoring.svc.cluster.local:8200
         tls:
@@ -64,8 +55,6 @@ opentelemetry-collector:
         endpoint: "0.0.0.0:8889"
     service:
       pipelines:
-        # Drop the dev-only Kafka -> Loki consumer pipeline inherited from values.yaml.
-        logs/consume: null
         traces:
           receivers: [otlp]
           processors: [resource, batch]
