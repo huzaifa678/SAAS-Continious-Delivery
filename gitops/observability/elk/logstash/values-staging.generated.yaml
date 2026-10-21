@@ -6,4 +6,4 @@
 # ─────────────────────────────────────────────────────────────────────────────
 logstash:
   image: 533267178572.dkr.ecr.us-east-1.amazonaws.com/logstash-msk
-  imageTag: sha-d88c8c3a
+  imageTag: sha-b0916201
