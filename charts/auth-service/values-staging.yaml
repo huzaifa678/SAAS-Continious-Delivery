@@ -2,7 +2,7 @@
 replicas: 2
 image:
   repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/auth-service"
-  tag: "sha-c51949cbf97f58e38c00ef343ff15f1f09b52911"
+  tag: "sha-b25b1d00dfb4b24fc966019c61617b54475d505d"
 istio:
   enabled: true
   revision: ""
