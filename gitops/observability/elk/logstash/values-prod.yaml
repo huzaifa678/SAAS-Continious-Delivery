@@ -3,3 +3,11 @@ logstash:
   resources:
     requests: { cpu: 500m, memory: 2Gi }
     limits:   { cpu: 1,    memory: 4Gi }
+  # Prod: schedule on the dedicated data NodePool (see elasticsearch values-prod.yaml).
+  nodeSelector:
+    workload: data
+  tolerations:
+    - key: dedicated
+      operator: Equal
+      value: data
+      effect: NoSchedule

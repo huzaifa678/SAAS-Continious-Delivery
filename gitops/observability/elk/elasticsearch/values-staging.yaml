@@ -1,0 +1,11 @@
+# Staging: pin Elasticsearch to the dedicated data NodePool (Karpenter `data`,
+# tainted dedicated=data:NoSchedule + labelled workload=data) so it doesn't crowd
+# the app/microservice pods on the shared `default` pool.
+elasticsearch:
+  nodeSelector:
+    workload: data
+  tolerations:
+    - key: dedicated
+      operator: Equal
+      value: data
+      effect: NoSchedule
