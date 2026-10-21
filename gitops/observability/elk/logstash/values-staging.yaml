@@ -1,0 +1,11 @@
+# Staging: schedule Logstash on the dedicated data NodePool (see the elasticsearch
+# values-staging.yaml / karpenter dataNodePool). The image/brokers still come from
+# the build-logstash-rendered values-staging.generated.yaml.
+logstash:
+  nodeSelector:
+    workload: data
+  tolerations:
+    - key: dedicated
+      operator: Equal
+      value: data
+      effect: NoSchedule
