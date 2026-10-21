@@ -1,3 +1,6 @@
 # Git-files generator config for the flattened observability ApplicationSet.
+# syncWave 1 so Kibana starts after Elasticsearch (syncWave 0) is up — its chart's
+# pre-install token hook (create-kibana-token) hits elasticsearch-master:9200 and
+# fails hard (ECONNREFUSED) if ES has no ready endpoints yet.
 namespace: logging
-syncWave: "0"
+syncWave: "1"
