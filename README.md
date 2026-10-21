@@ -863,17 +863,21 @@ so running both double-processes and corrupts aggregates. Pick exactly one.
 
 | | Option A — **ACTIVE** | Option B — alternative (not wired) |
 |---|---|---|
-| Where | [`infra/base/airflow/`](infra/base/airflow/) | [`infra/base/usage-etl-argo-keda/`](infra/base/usage-etl-argo-keda/) |
+| Where | [`gitops/infra/airflow/`](gitops/infra/airflow/) (flattened `addons` chart) | [`infra/base/usage-etl-argo-keda/`](infra/base/usage-etl-argo-keda/) |
 | Orchestration | Airflow, `KubernetesExecutor` (each task = a pod; no Celery/Redis) | Argo Workflows + KEDA |
 | ingest | Airflow DAG task | Deployment + KEDA `ScaledObject` (Kafka lag, scale-to-zero) |
 | aggregate → embed | Airflow DAG tasks | Argo Workflows `CronWorkflow` (ordered DAG) |
 | ordered deps | yes (DAG) | yes (Argo DAG for the batch stages) |
 
-Option A is the default: `infra/base/kustomization.yaml` references
-`airflow/airflow.yaml` + `airflow/appdatabase.yaml`, and **not**
-`usage-etl-argo-keda/`. To switch to B, follow the full guide in
-[`ARGOWORKFLOWS.md`](ARGOWORKFLOWS.md). The two are mutually exclusive — both
-consume the same topic and write the same tables.
+**Option A is the default.** Airflow is delivered as the flattened `addons`
+ApplicationSet chart [`gitops/infra/airflow`](gitops/infra/airflow) (membership via
+`app.<env>.yaml`), so it is on in every env out of the box, and
+[`infra/base/kustomization.yaml`](infra/base/kustomization.yaml) does **not**
+reference `usage-etl-argo-keda/`. That kustomization is the single switch point: to
+move to Option B, uncomment its `usage-etl-argo-keda` line **and** disable the
+airflow addon (remove `gitops/infra/airflow/app.<env>.yaml`), per the full guide in
+[`ARGOWORKFLOWS.md`](ARGOWORKFLOWS.md). The two are mutually exclusive — both consume
+the same topic and write the same tables.
 
 Airflow's metadata DB is a dedicated RDS instance managed via Crossplane
 (`AppDatabase` claim → `airflow-db` Secret → injected as

@@ -7,3 +7,4 @@ kind: Kustomization
 # platform manifests delivered directly by the `infra` ApplicationSet.
 resources:
   - pod-identity-refresh/application.yaml
+  # - usage-etl-argo-keda   # Option B (Argo Workflows + KEDA) — keep commented while Airflow (A) is the active default
