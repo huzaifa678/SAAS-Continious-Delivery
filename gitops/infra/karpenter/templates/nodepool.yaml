@@ -8,9 +8,6 @@ metadata:
     argocd.argoproj.io/sync-wave: "1"
 spec:
   template:
-    metadata:
-      labels:
-        karpenter.sh/nodepool: default
     spec:
       nodeClassRef:
         group: karpenter.k8s.aws
@@ -71,7 +68,6 @@ spec:
   template:
     metadata:
       labels:
-        karpenter.sh/nodepool: data
         workload: data
     spec:
       taints:
@@ -117,7 +113,6 @@ spec:
   template:
     metadata:
       labels:
-        karpenter.sh/nodepool: batch
         workload: batch
     spec:
       nodeClassRef:
