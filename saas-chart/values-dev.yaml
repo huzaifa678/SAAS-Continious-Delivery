@@ -50,7 +50,7 @@ opentelemetry-collector:
         group_id: otel-logs-loki
         auth:
           sasl:
-            mechanism: AWS_MSK_IAM
+            mechanism: AWS_MSK_IAM_OAUTHBEARER
           tls:
             insecure: false
     exporters:
@@ -70,7 +70,7 @@ opentelemetry-collector:
           encoding: otlp_json
         auth:
           sasl:
-            mechanism: AWS_MSK_IAM
+            mechanism: AWS_MSK_IAM_OAUTHBEARER
           tls:
             insecure: false
       debug:
