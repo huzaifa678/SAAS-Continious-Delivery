@@ -60,6 +60,17 @@ spec:
           prune: true
           selfHeal: true
           allowEmpty: false
+        # These Applications are generated independently (no RollingSync), so the
+        # per-app syncWave annotation does not health-gate one app behind another.
+        # Retry lets a component that races a dependency recover on its own — e.g.
+        # Kibana's pre-install token hook re-runs until Elasticsearch is ready
+        # instead of leaving the app stuck Missing.
+        retry:
+          limit: 7
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 10m
         syncOptions:
           - CreateNamespace=true
           - ServerSideApply=true
