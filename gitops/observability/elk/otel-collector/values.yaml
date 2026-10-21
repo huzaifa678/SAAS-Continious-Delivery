@@ -5,9 +5,13 @@ region: us-east-1
 prometheusEndpoint: ""
 opensearchEndpoint: ""
 
+# The config below uses the `transform` processor and `opensearch` exporter,
+# which ship only in the upstream contrib distro — the ADOT collector
+# (aws-otel-collector) rejects them with "unknown type". Pin the contrib image
+# (same distro/tag the saas-chart already uses).
 image:
-  repository: public.ecr.aws/aws-observability/aws-otel-collector
-  tag: v0.43.1
+  repository: otel/opentelemetry-collector-contrib
+  tag: "0.159.0"
 
 replicas: 1
 

@@ -10,7 +10,10 @@ data:
       sigv4auth:
         region: {{ .Values.region }}
         service: aps
-      sigv4_os:
+      # A second sigv4auth instance for the OpenSearch domain (service: es). The
+      # key must be <type>/<name> = sigv4auth/os; a bare `sigv4_os` is parsed as
+      # an unknown extension *type* and fails config load.
+      sigv4auth/os:
         region: {{ .Values.region }}
         service: es
     receivers:
@@ -45,13 +48,24 @@ data:
         auth:
           authenticator: sigv4auth
       opensearch:
-        endpoint: https://{{ .Values.opensearchEndpoint }}
-        auth:
-          authenticator: sigv4_os
-        logs_index: otel-logs-%{+yyyy.MM.dd}
-        traces_index: otel-traces-%{+yyyy.MM.dd}
+        # contrib opensearch exporter: endpoint + auth live under `http` (it embeds
+        # confighttp.ClientConfig); sigv4auth signs the request to the AWS domain.
+        http:
+          endpoint: https://{{ .Values.opensearchEndpoint }}
+          auth:
+            authenticator: sigv4auth/os
+        # ss4o mapping (the default mode) requires dataset + namespace.
+        dataset: otel
+        namespace: default
+        # Daily indices. `%{...}` resolves attributes, NOT dates — the date suffix
+        # comes from *_index_time_format and is joined with a '-', so
+        # logs_index "otel-logs" + "yyyy.MM.dd" => otel-logs-2026.10.21.
+        logs_index: otel-logs
+        logs_index_time_format: "yyyy.MM.dd"
+        traces_index: otel-traces
+        traces_index_time_format: "yyyy.MM.dd"
     service:
-      extensions: [sigv4auth, sigv4_os]
+      extensions: [sigv4auth, sigv4auth/os]
       pipelines:
         traces:
           receivers: [otlp]
