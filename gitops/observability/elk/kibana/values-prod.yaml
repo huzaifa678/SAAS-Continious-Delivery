@@ -1,0 +1,10 @@
+# Prod: schedule Kibana on the dedicated data NodePool (see the elasticsearch
+# values-prod.yaml / karpenter dataNodePool).
+kibana:
+  nodeSelector:
+    workload: data
+  tolerations:
+    - key: dedicated
+      operator: Equal
+      value: data
+      effect: NoSchedule

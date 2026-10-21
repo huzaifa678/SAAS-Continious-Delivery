@@ -1,0 +1,21 @@
+# Prod: 3-node HA Elasticsearch on the dedicated data NodePool (Karpenter `data`,
+# tainted dedicated=data:NoSchedule + labelled workload=data), with larger
+# resources + storage than staging.
+elasticsearch:
+  replicas: 3
+  minimumMasterNodes: 2
+  resources:
+    requests: { cpu: 1, memory: 2Gi }
+    limits:   { cpu: 2, memory: 4Gi }
+  volumeClaimTemplate:
+    accessModes: ["ReadWriteOnce"]
+    resources:
+      requests:
+        storage: 100Gi
+  nodeSelector:
+    workload: data
+  tolerations:
+    - key: dedicated
+      operator: Equal
+      value: data
+      effect: NoSchedule
