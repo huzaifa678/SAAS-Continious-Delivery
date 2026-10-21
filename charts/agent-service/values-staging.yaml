@@ -2,7 +2,7 @@
 replicas: 2
 image:
   repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/agent-service"
-  tag: "sha-040aa03af1e110b65d522aa162d111bec951d3c3"
+  tag: "sha-9e3c57802aad548b03e2087fd36767c9700a6233"
 istio:
   enabled: true
   revision: ""
