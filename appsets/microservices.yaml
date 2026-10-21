@@ -32,7 +32,8 @@ spec:
     spec:
       project: default
       sources:
-        - repoURL: oci://533267178572.dkr.ecr.us-east-1.amazonaws.com/helm
+        # removing oci:// prefix from the repoURL
+        - repoURL: 533267178572.dkr.ecr.us-east-1.amazonaws.com/helm
           chart: '{{.path.basename}}'
           # Floating SemVer range: each app auto-resolves the latest 0.x of its own
           # chart
