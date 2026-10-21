@@ -35,7 +35,16 @@ opentelemetry-collector:
       value: BOOTSTRAP_BROKERS
 
   config:
+    # prod drains Kafka to Elasticsearch via the Logstash addon, so the base
+    # values' dev-only in-collector consumer (Kafka -> Loki) is disabled here.
+    receivers:
+      kafka/logs: null
     exporters:
+      # Disable the dev-only exporters inherited from values.yaml (the Kafka -> Loki
+      # consumer used loki/debug; tempo backed the dev traces pipeline, dropped below).
+      otlp/tempo: null
+      otlphttp/loki: null
+      debug: null
       # Producer only: logs are buffered to Kafka and drained to Elasticsearch by
       # the Logstash addon (gitops/observability/elk/logstash).
       kafka/logs:
@@ -53,6 +62,12 @@ opentelemetry-collector:
         endpoint: "0.0.0.0:8889"
     service:
       pipelines:
+        # Drop dev-only pipelines inherited from values.yaml: the Kafka -> Loki
+        # consumer, and traces -> otlp/tempo (prod ships no traces here, and the
+        # otlp/tempo exporter is disabled above — leaving it would reference a
+        # non-existent exporter and fail config load).
+        logs/consume: null
+        traces: null
         metrics:
           receivers: [otlp]
           processors: [resource, batch]
