@@ -22,3 +22,20 @@ airflow:
   dags:
     gitSync:
       branch: "main"
+
+  # Soft-isolate Airflow onto the dedicated `batch` Karpenter pool (label
+  # workload=batch, NO taint — nothing is stranded). nodeSelector places the pods
+  # we control here; the DAGs' KubernetesPodOperator ETL pods (usage-service repo)
+  # colocate only if their executor_config carries the same nodeSelector.
+  scheduler:
+    nodeSelector:
+      workload: batch
+  web:
+    nodeSelector:
+      workload: batch
+  triggerer:
+    nodeSelector:
+      workload: batch
+  kubernetesPodTemplate:
+    nodeSelector:
+      workload: batch
