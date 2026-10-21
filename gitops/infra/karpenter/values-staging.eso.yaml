@@ -6,15 +6,10 @@ gitopsContract:
     secretName: saas/test/infra-contract
 
 karpenter:
-  # settings.clusterName / interruptionQueue stay unset; CLUSTER_NAME and
-  # INTERRUPTION_QUEUE come from the karpenter-contract Secret via controller.env.
+  # injecting CLUSTER_NAME again duplicates the env
+  # key and Server-Side Apply rejects the Deployment.
   controller:
     env:
-      - name: CLUSTER_NAME
-        valueFrom:
-          secretKeyRef:
-            name: karpenter-contract
-            key: CLUSTER_NAME
       - name: INTERRUPTION_QUEUE
         valueFrom:
           secretKeyRef:
