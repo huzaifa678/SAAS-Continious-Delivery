@@ -11,6 +11,10 @@ gitopsContract:
     secretStore: aws-secrets-manager
 
 karpenter:
+  # Pin the controller ServiceAccount name (env-independent) so it matches the EKS
+  # Pod Identity association in saas-services-infra
+  serviceAccount:
+    name: karpenter
   controller:
     resources:
       requests: { cpu: 250m, memory: 256Mi }
