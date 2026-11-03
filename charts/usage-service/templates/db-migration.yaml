@@ -1,0 +1,111 @@
+{{- if and .Values.database.enabled .Values.database.migrations.enabled }}
+{{- $svc := "usage-service" }}
+{{- $m := .Values.database.migrations }}
+{{- $secret := $m.secretName | default (printf "%s-db" $svc) }}
+---
+# Argo CD PreSync hook: runs Alembic to migrate the database BEFORE the new Rollout is
+# applied, so the API never starts against an un-migrated schema. Alembic is idempotent
+# (tracks applied revisions in alembic_version), so re-running each sync is a no-op.
+#
+# Unlike the Liquibase services, the migrations ship INSIDE the image (Dockerfile.api
+# COPYs migrations/ + alembic.ini), so there is no changelog ConfigMap — the Job just
+# runs `alembic upgrade head` from /app.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $svc }}-db-migrate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ $svc }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    # Replace the previous Job each sync so it re-runs; keep it after success for logs.
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: {{ $m.backoffLimit | default 3 }}
+  activeDeadlineSeconds: {{ $m.activeDeadlineSeconds | default 600 }}
+  ttlSecondsAfterFinished: {{ $m.ttlSecondsAfterFinished | default 1800 }}
+  template:
+    metadata:
+      labels:
+        app: {{ $svc }}
+        job: db-migrate
+      annotations:
+        # A mesh sidecar would never exit and the Job would hang; keep this Pod out of it.
+        sidecar.istio.io/inject: "false"
+    spec:
+      restartPolicy: Never
+      # The migration Job does not call the Kubernetes API, so it does not need
+      # the automatically mounted ServiceAccount token.
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: {{ (.Values.serviceAccount | default dict).name | default $svc }}
+      containers:
+        - name: alembic
+          # Defaults to the service image, which bundles alembic + migrations/.
+          image: {{ $m.image | default (printf "%s:%s" $.Values.image.repository $.Values.image.tag) }}
+          imagePullPolicy: Always
+          command: ["alembic", "upgrade", "head"]
+          # env.py builds the URL from POSTGRES_* and honours libpq's PGSSLMODE.
+          # Creds come from the Crossplane AppDatabase connection Secret (<svc>-db).
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: password
+            - name: POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: host
+            - name: POSTGRES_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: port
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: database
+            - name: PGSSLMODE
+              value: {{ $m.sslmode | default "require" | quote }}
+          volumeMounts:
+            # readOnlyRootFilesystem requires an explicitly writable temp dir.
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
