@@ -265,6 +265,20 @@ Helm charts (`oci://…/helm/<svc>`):
   bitnami` with `targetRevision: "*"` is itself deprecated — this is a stopgap. The
   maintained path is the keycloakx addon (`gitops/infra/keycloak`, `keycloak-staging`);
   consider consolidating onto it and deleting `keycloak-helm`.
+- **Resolution — pivoted off the Bitnami chart [infra]:** after the image repoint the
+  Bitnami chart kept folding the RDS `host:5432` into its `keycloak-env-vars` ConfigMap's
+  `KC_DB_URL_HOST` (so keycloak resolved `host:5432` as a hostname), its sync hung
+  `waiting for healthy state of StatefulSet/keycloak` (so `postgresql.enabled:false` never
+  pruned), and no DB password was wired — all friction from a deprecated chart. Meanwhile
+  the keycloakx `keycloak-staging` already had the **correct** bare DB host in the
+  `keycloak-contract` Secret. So the Terraform keycloak-helm bootstrap was **removed**
+  (`kubectl_manifest.keycloak_app` + `argo-keycloak.yaml.tpl` deleted from
+  `modules/k8s-and-helm/`, mirroring the earlier karpenter de-bootstrap); keycloak is now
+  solely the CD keycloakx `keycloak-staging` (official `quay.io/keycloak`, same RDS via
+  `keycloak-contract`). **Operational (next bring-up):** delete any leftover `keycloak-helm`
+  Application + its `keycloak-0`/`keycloak-postgresql-0`; confirm api-gateway targets the
+  keycloakx service/realm. `var.keycloak_db_endpoint`/`var.auth_provider` are now unused in
+  that module — prune later.
 
 ---
 
