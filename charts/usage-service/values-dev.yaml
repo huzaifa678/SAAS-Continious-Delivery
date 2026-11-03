@@ -36,6 +36,8 @@ database:
   owner: usage_app
   extensions:
     - uuid-ossp
+  migrations:
+    enabled: true
 
 keda:
   enabled: false

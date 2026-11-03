@@ -81,6 +81,27 @@ database:
   databaseName: usage_app     # lowercase + underscores, <=63 chars
   owner: usage_app            # postgres role; gets ALL privileges on the db
   extensions: []              # e.g. ["uuid-ossp", "pgcrypto"]
+  # Alembic migration Job (PreSync hook), runs `alembic upgrade head` before the
+  # Rollout. Migrations ship inside the image (Dockerfile.api bundles migrations/ +
+  # alembic.ini), so no changelog ConfigMap is needed.
+  migrations:
+    enabled: false
+    image: ""                 # defaults to the service image (image.repository:tag)
+    sslmode: require          # RDS enforces TLS; use "disable" only for a non-TLS local DB
+    backoffLimit: 3
+    activeDeadlineSeconds: 600
+    ttlSecondsAfterFinished: 1800
+
+externalSecret:
+  enabled: false
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  remoteRef:
+    key: saas/usage-service
+  target:
+    name: usage-service
 
 keda:
   enabled: false

@@ -49,6 +49,10 @@ database:
   extensions:
     - uuid-ossp
     - pgcrypto
+  migrations:
+    enabled: true
+externalSecret:
+  enabled: true
 keda:
   enabled: true
   minReplicaCount: 2
