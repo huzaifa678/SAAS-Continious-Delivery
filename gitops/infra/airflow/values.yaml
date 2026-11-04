@@ -1,64 +1,60 @@
-# Values for the upstream airflow-helm chart (dependency alias: `airflow`).
-# NOTE on nesting: the chart's own keys live under the `airflow:` alias. The chart's
-# executor and extraEnv are at `airflow.executor` / `airflow.extraEnv` inside the chart,
-# so from here they are `airflow.airflow.executor` / `airflow.airflow.extraEnv`.
-# (The previous `airflow.executor` was one level too high and silently fell back to
-# CeleryExecutor — fixed below so KubernetesExecutor / KubernetesPodOperator work.)
+---
+# Values for the OFFICIAL Apache Airflow Helm chart (dependency alias: `airflow`).
+# Migrated from the community airflow-helm 8.9.0 chart (Airflow 2.x — EOL 2026-04-22)
+# to the official chart (Airflow 3.x). The official chart's keys sit directly under the
+# `airflow:` alias.
 airflow:
+  executor: KubernetesExecutor
+
+  # Custom orchestrator image (usage-service/airflow/Dockerfile): apache/airflow 3.2.2
+  # — the appVersion this chart targets — slimmed to the cncf.kubernetes + standard
+  # providers + security patches. Built by CI as usage-service:airflow-<tag>; the tag is
+  # set per-env in values-<env>.yaml (CD rewrites it on promote).
+  images:
+    airflow:
+      repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/usage-service"
+      tag: "airflow-dev"
+
+  # No bundled datastores: Postgres is the Crossplane AppDatabase (RDS), and
+  # KubernetesExecutor needs no Redis/Celery.
   postgresql:
     enabled: false
-  # KubernetesExecutor requires these three disabled (chart validation enforces it):
-  # each task runs as its own pod, so there are no celery workers / flower / redis.
   redis:
     enabled: false
-  workers:
-    enabled: false
-  flower:
-    enabled: false
 
-  airflow:
-    executor: KubernetesExecutor
-    # Bumped off the chart default (2.8.4-python3.9) to the latest patched 2.x the
-    # airflow-helm 8.9.0 chart supports, pinned by digest. (Chart 8.9.0 targets Airflow
-    # 2.x, so we stay on 2.x here rather than the 3.x job images.)
-    image:
-      repository: apache/airflow
-      tag: "2.10.5-python3.11@sha256:b16e19f925ae0dcabaa2271b37212891ed68bf74e26c2db61f46dddd7d502937"
-    extraEnv:
-      - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
-        valueFrom:
-          secretKeyRef:
-            name: airflow-db
-            key: dsn
-      # Usage-ETL job images (Option A). The DAGs launch
-      # <USAGE_ETL_IMAGE_REPO>:<component>-<USAGE_ETL_IMAGE_TAG> pods via
-      # KubernetesPodOperator. Repo is the single `usage-service` ECR repo; the tag is
-      # the env name, set per-env in values-<env>.yaml (which replaces this whole list).
-      - name: USAGE_ETL_IMAGE_REPO
-        value: "533267178572.dkr.ecr.us-east-1.amazonaws.com/usage-service"
-      - name: USAGE_ETL_IMAGE_TAG
-        value: "dev"
-      - name: USAGE_ETL_NAMESPACE
-        value: "airflow"
-      - name: USAGE_ETL_ENV_SECRET
-        value: "usage-etl-env"
-      # ServiceAccount the task pods run as. Bound to an MSK SASL/IAM role via EKS Pod
-      # Identity in Terraform (layers/20-data: kafka_clients["usage-etl-airflow"]).
-      - name: USAGE_ETL_SERVICE_ACCOUNT
-        value: "usage-etl"
+  enableBuiltInSecretEnvVars:
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: false
+  secret:
+    - envName: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+      secretName: airflow-db
+      secretKey: dsn
+
+  env:
+    - name: USAGE_ETL_IMAGE_REPO
+      value: "533267178572.dkr.ecr.us-east-1.amazonaws.com/usage-service"
+    - name: USAGE_ETL_IMAGE_TAG
+      value: "dev"
+    - name: USAGE_ETL_NAMESPACE
+      value: "airflow"
+    - name: USAGE_ETL_ENV_SECRET
+      value: "usage-etl-env"
+    - name: USAGE_ETL_SERVICE_ACCOUNT
+      value: "usage-etl"
 
   # DAGs come from the usage-service repo via git-sync (versioned with the ETL code).
   dags:
     gitSync:
       enabled: true
       repo: "https://github.com/huzaifa678/usage-service.git"
-      repoSubPath: "usage-service/airflow/dags"
       branch: "dev"            # overridden per-env in values-<env>.yaml
-      revision: "HEAD"
-      syncWait: 60
-      # If the repo is private, pre-create a Secret (keys: username, password=PAT) and
-      # set its name here; harmless to leave empty for a public repo.
-      # httpSecret: "airflow-git-sync"
+      rev: HEAD
+      subPath: "usage-service/airflow/dags"
+      period: 60s
+
+  # Airflow 3 runs scheduler + api-server + dag-processor + triggerer. The migrate job
+  # runs `airflow db migrate` on deploy (handles the 2.x -> 3.x schema upgrade).
+  migrateDatabaseJob:
+    enabled: true
 
 # Crossplane AppDatabase claim for airflow's metadata DB (templates/appdatabase.yaml).
 appDatabase:
