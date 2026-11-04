@@ -1,41 +1,25 @@
-# Per-env override. extraEnv is a LIST (Helm replaces lists, not merges), so the full
-# list is repeated here with this env's image tag. gitSync is a map, so only branch
-# is overridden (repo/subPath come from values.yaml).
+# Per-env override. `env` is a LIST (Helm replaces, not merges), so the full list is
+# repeated here with the prod ETL image tag. The DB connection is injected via `secret:`
+# in values.yaml. gitSync is a map, so only branch is overridden. nodeSelector
+# soft-isolates Airflow onto the `batch` Karpenter pool (scheduler, api-server,
+# dag-processor, triggerer, migrate job, and the KubernetesExecutor task pods).
 airflow:
-  airflow:
-    extraEnv:
-      - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
-        valueFrom:
-          secretKeyRef:
-            name: airflow-db
-            key: dsn
-      - name: USAGE_ETL_IMAGE_REPO
-        value: "533267178572.dkr.ecr.us-east-1.amazonaws.com/usage-service"
-      - name: USAGE_ETL_IMAGE_TAG
-        value: "prod"
-      - name: USAGE_ETL_NAMESPACE
-        value: "airflow"
-      - name: USAGE_ETL_ENV_SECRET
-        value: "usage-etl-env"
-      - name: USAGE_ETL_SERVICE_ACCOUNT
-        value: "usage-etl"
+  env:
+    - name: USAGE_ETL_IMAGE_REPO
+      value: "533267178572.dkr.ecr.us-east-1.amazonaws.com/usage-service"
+    - name: USAGE_ETL_IMAGE_TAG
+      value: "prod"
+    - name: USAGE_ETL_NAMESPACE
+      value: "airflow"
+    - name: USAGE_ETL_ENV_SECRET
+      value: "usage-etl-env"
+    - name: USAGE_ETL_SERVICE_ACCOUNT
+      value: "usage-etl"
+  images:
+    airflow:
+      tag: "airflow-prod"
+  nodeSelector:
+    workload: batch
   dags:
     gitSync:
       branch: "main"
-
-  # Soft-isolate Airflow onto the dedicated `batch` Karpenter pool (label
-  # workload=batch, NO taint — nothing is stranded). nodeSelector places the pods
-  # we control here; the DAGs' KubernetesPodOperator ETL pods (usage-service repo)
-  # colocate only if their executor_config carries the same nodeSelector.
-  scheduler:
-    nodeSelector:
-      workload: batch
-  web:
-    nodeSelector:
-      workload: batch
-  triggerer:
-    nodeSelector:
-      workload: batch
-  kubernetesPodTemplate:
-    nodeSelector:
-      workload: batch
