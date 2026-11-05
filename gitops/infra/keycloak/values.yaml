@@ -19,6 +19,21 @@ databaseSecret:
   remoteName: keycloak-db-secret
   secretStore: aws-secrets-manager
 
+# keycloak-admin-secret (password) — the bootstrap admin password that
+# keycloakx.extraEnv wires into KC_BOOTSTRAP_ADMIN_PASSWORD. Materialized the
+# same way as the DB secret (External Secrets, every env), so the StatefulSet is
+# not left in CreateContainerConfigError waiting for a hand-created Secret.
+# remoteName/remoteKey point at the AWS Secrets Manager secret + JSON property;
+# the dedicated secret keeps the bootstrap credential out of the shared
+# infra-contract. Create it on the infra side, e.g.:
+#   aws secretsmanager create-secret --name keycloak-admin-secret \
+#     --secret-string '{"password":"<generated>"}'
+adminSecret:
+  enabled: true
+  remoteName: keycloak-admin-secret
+  remoteKey: password
+  secretStore: aws-secrets-manager
+
 keycloakx:
   fullnameOverride: keycloak
 
