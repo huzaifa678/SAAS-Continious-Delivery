@@ -6,10 +6,27 @@
 airflow:
   executor: KubernetesExecutor
 
-  # Custom orchestrator image (usage-service/airflow/Dockerfile): apache/airflow 3.2.2
-  # — the appVersion this chart targets — slimmed to the cncf.kubernetes + standard
-  # providers + security patches. Built by CI as usage-service:airflow-<tag>; the tag is
-  # set per-env in values-<env>.yaml (CD rewrites it on promote).
+  # Keep in sync with the custom image's Airflow version (see images.airflow below). The
+  # chart defaults this to its appVersion (3.2.2); the official upgrade guide says to set
+  # it to the running 3.x release. All chart version-gates are major-only (Airflow 2 vs 3),
+  # so 3.2.2 vs 3.3.2 render identically — this is correctness/future-proofing, not a fix.
+  airflowVersion: "3.3.2"
+
+  # Fallback image tag for containers the chart renders from the DEFAULT image rather than
+  # images.airflow — notably the KubernetesExecutor worker pod-template ConfigMap. The
+  # chart default is the appVersion (3.2.2); left unset, task/worker pods would run the
+  # UNPATCHED, version-skewed apache/airflow:3.2.2 while the scheduler/api-server run the
+  # custom 3.3.2 image. Pin it to the patched release so no 3.2.2 remains and every Airflow
+  # process is on 3.3.2. (worker_container_repository/tag still point workers at the custom
+  # image via airflow.cfg; this closes the pod-template path regardless of executor precedence.)
+  defaultAirflowTag: "3.3.2"
+
+  # Custom orchestrator image (usage-service/airflow/Dockerfile): apache/airflow 3.3.2
+  # (patched for CVE-2026-33264 et al.), slimmed to the cncf.kubernetes + standard
+  # providers + security patches. This chart (official 1.22.0) defaults to appVersion
+  # 3.2.2, but we override the image here, so its Airflow-3.x templates run the patched
+  # 3.3.2 binary. Built by CI as usage-service:airflow-<tag>; the tag is set per-env in
+  # values-<env>.yaml (CD rewrites it on promote).
   images:
     airflow:
       repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/usage-service"
