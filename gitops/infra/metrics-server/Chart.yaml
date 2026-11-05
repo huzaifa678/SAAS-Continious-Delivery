@@ -1,0 +1,10 @@
+---
+apiVersion: v2
+name: metrics-server
+description: metrics-server cluster addon (upstream chart) — provides the resource metrics API (metrics.k8s.io) that CPU/memory HPAs and `kubectl top` require.
+type: application
+version: 0.1.0
+dependencies:
+  - name: metrics-server
+    version: "3.12.2"
+    repository: https://kubernetes-sigs.github.io/metrics-server/

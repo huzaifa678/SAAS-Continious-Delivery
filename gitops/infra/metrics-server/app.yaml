@@ -1,0 +1,6 @@
+# Git-files generator config for the flattened addons ApplicationSet.
+# Early wave so the resource metrics API exists before HPA-bearing workloads
+# (istiod, microservices) reconcile — otherwise their HPAs report Degraded with
+# "unable to fetch metrics from resource metrics API".
+namespace: kube-system
+syncWave: "-2"

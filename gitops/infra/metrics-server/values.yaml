@@ -1,0 +1,10 @@
+metrics-server:
+  # EKS kubelet serving certs are signed by the cluster CA that metrics-server
+  # trusts out of the box, so --kubelet-insecure-tls is NOT needed here. The
+  # chart's defaultArgs already prefer InternalIP, and `args` is APPENDED to them
+  # (not a replacement), so we leave it unset to avoid a duplicate flag.
+  resources:
+    requests: { cpu: 50m, memory: 100Mi }
+    limits:   { cpu: 200m, memory: 256Mi }
+  # Single replica is fine for staging/dev; bump in values-prod.yaml if needed.
+  replicas: 1
