@@ -10,7 +10,9 @@ metadata:
 spec:
   args:
   - name: service-name
+    value: {{ $svc }}
   - name: namespace
+    value: {{ .Release.Namespace }}
   metrics:
   - name: success-rate
     interval: {{ $a.interval | default "1m" }}
@@ -41,7 +43,9 @@ metadata:
 spec:
   args:
   - name: service-name
+    value: {{ $svc }}
   - name: namespace
+    value: {{ .Release.Namespace }}
   metrics:
   - name: latency-p95-ms
     interval: {{ $a.interval | default "1m" }}
