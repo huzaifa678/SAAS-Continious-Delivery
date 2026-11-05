@@ -9,7 +9,7 @@ airflow:
     - name: USAGE_ETL_IMAGE_REPO
       value: "533267178572.dkr.ecr.us-east-1.amazonaws.com/usage-service"
     - name: USAGE_ETL_IMAGE_TAG
-      value: "sha-53503efe2534b209d604259017db0990842db39c"
+      value: "sha-1d854dec25cfd95aad9e4d6554dc2421ca61d4c6"
     - name: USAGE_ETL_NAMESPACE
       value: "airflow"
     - name: USAGE_ETL_ENV_SECRET
@@ -18,7 +18,7 @@ airflow:
       value: "usage-etl"
   images:
     airflow:
-      tag: "airflow-sha-53503efe2534b209d604259017db0990842db39c"
+      tag: "airflow-sha-1d854dec25cfd95aad9e4d6554dc2421ca61d4c6"
   nodeSelector:
     workload: batch
   dags:
