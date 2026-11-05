@@ -34,7 +34,8 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
 spec:
-  package: xpkg.upbound.io/upbound/provider-aws-elasticache:v1.21.1
+  # v1.21.1 never existed in the registry (v1 tops out at v1.9.2).
+  package: xpkg.upbound.io/upbound/provider-aws-elasticache:v2.9.4
   packagePullPolicy: IfNotPresent
   revisionActivationPolicy: Automatic
   revisionHistoryLimit: 1
