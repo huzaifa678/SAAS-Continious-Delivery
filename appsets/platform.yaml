@@ -34,7 +34,22 @@ spec:
           prune: false
           selfHeal: true
           allowEmpty: false
+        # This recursive Application bundles the Upbound provider-aws Provider
+        # (wave -1) with the XRDs/Compositions and the elasticache.aws.upbound.io
+        # claim that consume its CRDs. ArgoCD's up-front server-side dry-run can't
+        # discover aws.upbound.io / elasticache.aws.upbound.io until the provider is
+        # installed, so it rejects the whole sync — which also means the
+        # platform.saas.example XRD never gets Established (blocking airflow/billing/
+        # usage downstream). SkipDryRunOnMissingResource lets the plan proceed;
+        # waves + retry converge once the provider registers its CRDs.
         syncOptions:
           - CreateNamespace=true
           - ServerSideApply=true
           - RespectIgnoreDifferences=true
+          - SkipDryRunOnMissingResource=true
+        retry:
+          limit: 7
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 10m
