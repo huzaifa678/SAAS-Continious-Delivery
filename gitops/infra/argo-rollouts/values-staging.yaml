@@ -1,0 +1,13 @@
+# Staging has no Prometheus Operator (the prometheus-stack app is gated behind the
+# `stack-grafana` cluster label, which staging does not carry — only `stack-elk`).
+# The upstream chart default enables a ServiceMonitor (monitoring.coreos.com), whose
+# CRD is therefore absent here; with it on, this Application fails to sync, so the
+# Rollout/AnalysisTemplate CRDs never install and every microservice that renders a
+# Rollout is stuck Missing. Disable the Prometheus-dependent bits on staging.
+argo-rollouts:
+  controller:
+    metrics:
+      serviceMonitor:
+        enabled: false
+  dashboard:
+    enabled: false
