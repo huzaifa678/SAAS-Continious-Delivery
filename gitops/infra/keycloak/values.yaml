@@ -34,6 +34,12 @@ adminSecret:
   remoteKey: password
   secretStore: aws-secrets-manager
 
+# Import the saas realm (clients/roles) on Keycloak startup, from
+# files/saas-realm.json via the keycloak-realm-import ConfigMap. Without it the
+# realm is empty and api-gateway/backstage OIDC 404 on /realms/saas/... .
+realmImport:
+  enabled: true
+
 keycloakx:
   fullnameOverride: keycloak
 
@@ -44,11 +50,27 @@ keycloakx:
     - "--hostname-strict=false"
     - "--health-enabled=true"
     - "--metrics-enabled=true"
+    # Import the saas realm from /opt/keycloak/data/import on startup (mounted
+    # below from the keycloak-realm-import ConfigMap). Keycloak only imports a
+    # realm that does not already exist, so this is safe on every restart.
+    - "--import-realm"
   proxy:
     enabled: true
     mode: forwarded
   http:
     relativePath: "/"
+
+  # Mount the saas realm export so --import-realm can load it. The ConfigMap is
+  # rendered by this umbrella chart (templates/realm-import-configmap.yaml) from
+  # files/saas-realm.json.
+  extraVolumes: |
+    - name: realm-import
+      configMap:
+        name: keycloak-realm-import
+  extraVolumeMounts: |
+    - name: realm-import
+      mountPath: /opt/keycloak/data/import
+      readOnly: true
 
   database:
     vendor: postgres

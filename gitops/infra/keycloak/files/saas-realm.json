@@ -1,0 +1,69 @@
+{
+  "realm": "saas",
+  "enabled": true,
+  "displayName": "SAAS Platform",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "verifyEmail": true,
+  "sslRequired": "external",
+  "roles": {
+    "realm": [
+      {
+        "name": "platform-admin",
+        "description": "Platform administrator"
+      },
+      {
+        "name": "tenant-admin",
+        "description": "Tenant administrator"
+      },
+      {
+        "name": "user",
+        "description": "Standard platform user"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "saas-frontend",
+      "name": "SAAS Frontend",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "redirectUris": [
+        "https://app.staging.freeeasycrypto.com/*"
+      ],
+      "webOrigins": [
+        "https://app.staging.freeeasycrypto.com"
+      ],
+      "defaultClientScopes": [
+        "profile",
+        "email",
+        "roles"
+      ]
+    },
+    {
+      "clientId": "api-gateway",
+      "name": "API Gateway",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "clientAuthenticatorType": "client-secret"
+    }
+  ],
+  "defaultDefaultClientScopes": [
+    "profile",
+    "email",
+    "roles"
+  ],
+  "authenticationFlows": [],
+  "groups": []
+}

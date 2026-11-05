@@ -1,0 +1,16 @@
+{{- if .Values.realmImport.enabled }}
+# saas realm export, mounted into /opt/keycloak/data/import and loaded by
+# kc.sh start --import-realm (see values.yaml keycloakx.command / extraVolumes).
+# The realm JSON lives in this chart at files/saas-realm.json.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm-import
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    # Ahead of the keycloak StatefulSet so the mount exists first.
+    argocd.argoproj.io/sync-wave: "-5"
+data:
+  saas-realm.json: |
+{{ .Files.Get "files/saas-realm.json" | indent 4 }}
+{{- end }}
