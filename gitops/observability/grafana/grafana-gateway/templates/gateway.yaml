@@ -53,7 +53,12 @@ metadata:
   name: nginx-gateway-lb
   namespace: monitoring
   annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    # Managed by the AWS Load Balancer Controller. The legacy "nlb" value uses the
+    # in-tree provider, which ignores aws-load-balancer-scheme and defaulted to an
+    # INTERNAL NLB on private subnets. "external" honors the scheme and places the
+    # NLB on the kubernetes.io/role/elb public subnets.
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "instance"
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
 spec:
   type: LoadBalancer
