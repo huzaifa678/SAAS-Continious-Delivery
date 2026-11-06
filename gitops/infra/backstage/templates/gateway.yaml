@@ -22,6 +22,15 @@ metadata:
   name: backstage-gateway
   namespace: {{ .Release.Namespace }}
 spec:
+  # NGF applies these to the LoadBalancer Service it provisions for this Gateway, so the
+  # NLB is internet-facing on the public (role/elb) subnets and its hostname lands in the
+  # Gateway's status.addresses — which external-dns (gateway-httproute source) publishes.
+  # Without this, NGF's default LB came up internal and external-dns published a private IP.
+  infrastructure:
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: "external"
+      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "instance"
+      service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
   gatewayClassName: nginx
   listeners:
     - name: https
