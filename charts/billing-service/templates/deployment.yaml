@@ -38,6 +38,13 @@ spec:
           value: {{ .value | quote }}
         {{- end }}
         {{- end }}
+        {{- if .Values.externalSecret.enabled }}
+        # Inject the Secrets-Manager-synced config (SPRING_DATASOURCE_URL, DB creds,
+        # Kafka) so the app reaches its RDS instead of the localhost:5434 default.
+        envFrom:
+        - secretRef:
+            name: {{ .Values.externalSecret.target.name | default $svc }}
+        {{- end }}
         ports:
         - containerPort: {{ .Values.port }}
           name: http
