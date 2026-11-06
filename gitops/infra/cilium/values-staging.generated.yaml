@@ -10,4 +10,4 @@
 # only content is the `cilium` subchart — Helm passes values down only when they
 # are keyed by the subchart name; a top-level key here is silently ignored.
 cilium:
-  k8sServiceHost: 682E26E366D60FE3055DB53A49C88A79.gr7.us-east-1.eks.amazonaws.com
+  k8sServiceHost: DE7BBD181F94CD987BEFC38D7F215344.gr7.us-east-1.eks.amazonaws.com
