@@ -1,1 +1,3 @@
 host: argocd.staging.freeeasycrypto.com
+# external-dns target: the internet-facing nginx-gateway-lb NLB.
+nlbTarget: k8s-argocd-nginxgat-89e6093857-f62c4406fb5031d6.elb.us-east-1.amazonaws.com

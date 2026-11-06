@@ -6,3 +6,5 @@ inClusterDb:
 gateway:
   enabled: true
 host: keycloak.staging.freeeasycrypto.com
+# external-dns target: the internet-facing nginx-gateway-lb NLB.
+nlbTarget: k8s-keycloak-nginxgat-71c79391ad-4506de2d1f0fb9ab.elb.us-east-1.amazonaws.com
