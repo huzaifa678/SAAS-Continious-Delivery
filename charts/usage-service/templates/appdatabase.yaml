@@ -7,6 +7,11 @@ metadata:
   name: {{ $svc }}
   labels:
     app: {{ $svc }}
+  annotations:
+    # Provision the DB (and write the connection Secret) BEFORE the Liquibase migrate
+    # hook (Sync wave -5) and the Rollout (wave 0). Previously the migrate PreSync hook
+    # ran before this sync-phase claim, so the Secret never existed and sync deadlocked.
+    argocd.argoproj.io/sync-wave: "-10"
 spec:
   parameters:
     databaseName: {{ .Values.database.databaseName | quote }}

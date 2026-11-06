@@ -18,10 +18,13 @@ metadata:
   labels:
     app: {{ $svc }}
   annotations:
-    argocd.argoproj.io/hook: PreSync
+    # Sync-phase hook (not PreSync) at a wave AFTER the AppDatabase (wave -10) so the
+    # connection Secret exists, and BEFORE the Rollout (wave 0) so the API never starts
+    # against an un-migrated schema.
+    argocd.argoproj.io/hook: Sync
     # Replace the previous Job each sync so it re-runs; keep it after success for logs.
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "-5"
 spec:
   backoffLimit: {{ $m.backoffLimit | default 3 }}
   activeDeadlineSeconds: {{ $m.activeDeadlineSeconds | default 600 }}
