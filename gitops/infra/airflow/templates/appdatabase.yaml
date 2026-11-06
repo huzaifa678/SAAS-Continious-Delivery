@@ -7,7 +7,11 @@ metadata:
   labels:
     app: airflow
   annotations:
-    argocd.argoproj.io/sync-wave: "2"
+    # Must be provisioned BEFORE the airflow workload: the scheduler/webserver pods
+    # mount the airflow-db connection secret this claim writes. At a later wave the
+    # workload (wave 0) never goes Healthy, so Argo never advances to apply the claim
+    # — a deadlock that leaves airflow-db missing. A negative wave creates the DB first.
+    argocd.argoproj.io/sync-wave: "-3"
 spec:
   parameters:
     databaseName: airflow

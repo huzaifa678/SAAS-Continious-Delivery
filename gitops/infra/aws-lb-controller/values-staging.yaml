@@ -1,2 +1,2 @@
 aws-load-balancer-controller:
-  clusterName: saas-eks-staging
+  clusterName: saas-eks-test
