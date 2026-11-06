@@ -68,3 +68,16 @@ keda:
       metricType: Utilization
       metadata:
         value: "80"
+
+security:
+  ciliumEgress:
+    # Cilium toFQDNs needs the DNS-visibility rule to ALLOW resolving the endpoint
+    # name so it can learn the IP; the previous "*.amazonaws.com" pattern was REFUSED
+    # for the multi-label RDS host, breaking resolution for both the app and the
+    # Alembic migrate Job. "*" permits resolution only — egress stays restricted to
+    # the rds/kafka/redis toFQDNs.
+    dnsMatchPatterns:
+      - "*"
+    rds: true
+    kafka: true
+    redis: true
