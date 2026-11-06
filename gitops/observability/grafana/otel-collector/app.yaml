@@ -5,3 +5,5 @@
 # values-<env>.generated.yaml rendered from the observability gitops_contract.
 namespace: monitoring
 syncWave: "2"
+# Distinct Application name so it does not collide with the elk-stack collector.
+appName: otel-collector-grafana

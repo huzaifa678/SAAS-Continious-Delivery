@@ -31,7 +31,9 @@ spec:
                 - path: gitops/observability/elk/*/app.yaml
   template:
     metadata:
-      name: '{{.path.basename}}-{{.metadata.labels.env}}'
+      # Use an explicit appName from app.yaml when present (disambiguates the two
+      # otel-collector dirs under elk/ and grafana/), else fall back to the dir name.
+      name: '{{ default .path.basename .appName }}-{{.metadata.labels.env}}'
       namespace: argocd
       annotations:
         argocd.argoproj.io/sync-wave: '{{.syncWave}}'
