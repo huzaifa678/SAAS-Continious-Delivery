@@ -30,7 +30,10 @@
     "Database": {
       "type": "object",
       "required": [
-        "migrations"
+        "enabled",
+        "instance",
+        "databaseName",
+        "owner"
       ],
       "properties": {
         "enabled": {
@@ -64,7 +67,12 @@
         "migrations": {
           "type": "object",
           "required": [
-            "enabled"
+            "enabled",
+            "image",
+            "sslmode",
+            "backoffLimit",
+            "activeDeadlineSeconds",
+            "ttlSecondsAfterFinished"
           ],
           "properties": {
             "enabled": {
