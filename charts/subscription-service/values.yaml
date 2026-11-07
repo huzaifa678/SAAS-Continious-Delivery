@@ -100,3 +100,17 @@ keda:
       metricType: Utilization
       metadata:
         value: "70"
+
+# TypeORM migrations, run as an Argo CD Sync hook (templates/db-migration.yaml) before
+# the Rollout. The Job reuses the service image (compiled migrations baked in under
+# dist/migrations) and connects with the SAME POSTGRES_* creds the app uses, from the
+# ExternalSecret-synced Secret (externalSecret.target.name). No Crossplane AppDatabase:
+# the DB/role already exist in RDS and the app owns its tables via this role.
+database:
+  migrations:
+    enabled: true
+    # image: defaults to image.repository:image.tag (the service image)
+    # secretName: defaults to externalSecret.target.name (subscription-service)
+    backoffLimit: 3
+    activeDeadlineSeconds: 600
+    ttlSecondsAfterFinished: 1800
