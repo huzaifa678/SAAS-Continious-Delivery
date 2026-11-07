@@ -1,3 +1,8 @@
 host: argocd.staging.freeeasycrypto.com
-# external-dns target: the internet-facing nginx-gateway-lb NLB.
-nlbTarget: k8s-argocd-nginxgat-89e6093857-f62c4406fb5031d6.elb.us-east-1.amazonaws.com
+
+# Pinned NodePorts for the internet-facing nginx-gateway-lb Service, so the infra
+# node-SG rule (modules/node-security-group: gateway_nodeport_min/max) stays a tight
+# range. Block 30100-30107 = argocd/keycloak/backstage/grafana x {http,https}.
+nodePorts:
+  http: 30100
+  https: 30101
