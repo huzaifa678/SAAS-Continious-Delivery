@@ -1,5 +1,8 @@
 # Staging host. Without this the chart falls back to values.yaml's grafana.dev.*
 # default, so the staging Gateway/Certificate would use the dev hostname.
 host: grafana.staging.freeeasycrypto.com
-# external-dns target: the internet-facing nginx-gateway-lb NLB.
-nlbTarget: k8s-monitori-nginxgat-75c19d33bf-e4dccaeb4f4addb1.elb.us-east-1.amazonaws.com
+
+# Pinned NodePorts (see infra modules/node-security-group gateway_nodeport range).
+nodePorts:
+  http: 30106
+  https: 30107
