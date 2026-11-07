@@ -33,6 +33,7 @@ security:
     allowAllEgress: false
   ciliumEgress:
     enabled: true
+    rds: true     # auth-service is a Postgres (Prisma) app — allow egress to RDS:5432
     kafka: true
 
 externalSecret:
@@ -99,3 +100,17 @@ keda:
       metricType: Utilization
       metadata:
         value: "70"
+
+# Prisma schema migrations, run as an Argo CD Sync hook (templates/db-migration.yaml)
+# before the Rollout. The Job reuses the service image (migrations are baked in under
+# prisma/) and connects with the SAME DATABASE_URL the app uses, from the
+# ExternalSecret-synced Secret (externalSecret.target.name). No Crossplane AppDatabase:
+# the DB/role already exist in RDS and the app owns its tables via this role.
+database:
+  migrations:
+    enabled: true
+    # image: defaults to image.repository:image.tag (the service image)
+    # secretName: defaults to externalSecret.target.name (auth-service)
+    backoffLimit: 3
+    activeDeadlineSeconds: 600
+    ttlSecondsAfterFinished: 1800

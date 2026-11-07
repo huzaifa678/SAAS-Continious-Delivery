@@ -1,0 +1,93 @@
+{{- if .Values.database.migrations.enabled }}
+{{- $svc := "auth-service" }}
+{{- $m := .Values.database.migrations }}
+{{- $secret := $m.secretName | default .Values.externalSecret.target.name | default $svc }}
+---
+# Argo CD Sync hook: runs Prisma migrations BEFORE the new Rollout starts, so the API
+# never serves against an un-migrated schema. `prisma migrate deploy` is idempotent
+# (applies only pending migrations tracked in _prisma_migrations), so re-running each
+# sync is a no-op.
+#
+# The migrations ship INSIDE the image (Dockerfile COPYs prisma/), so there is no
+# changelog ConfigMap. The Job reuses the service image and connects with the SAME
+# credentials the app uses — the ExternalSecret-synced Secret ({{ $secret }},
+# key DATABASE_URL) — so migrated tables are owned by and visible to the app's role.
+#
+# Wave -2 runs after the ExternalSecret (wave -3, gated Healthy by the ESO health
+# check in argocd-cm) so DATABASE_URL exists, and before the Rollout (wave 0).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $svc }}-db-migrate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ $svc }}
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    # Replace the previous Job each sync so it re-runs; keep it after success for logs.
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  backoffLimit: {{ $m.backoffLimit | default 3 }}
+  activeDeadlineSeconds: {{ $m.activeDeadlineSeconds | default 600 }}
+  ttlSecondsAfterFinished: {{ $m.ttlSecondsAfterFinished | default 1800 }}
+  template:
+    metadata:
+      labels:
+        app: {{ $svc }}
+        job: db-migrate
+      annotations:
+        # A mesh sidecar would never exit and the Job would hang; keep this Pod out of it.
+        sidecar.istio.io/inject: "false"
+    spec:
+      restartPolicy: Never
+      # The migration Job does not call the Kubernetes API, so it does not need
+      # the automatically mounted ServiceAccount token.
+      automountServiceAccountToken: false
+      # Reuse the service SA so the pod matches the app's CiliumNetworkPolicy
+      # (egress to *.rds.amazonaws.com:5432 via ciliumEgress.rds).
+      serviceAccountName: {{ (.Values.serviceAccount | default dict).name | default $svc }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: prisma
+          image: {{ $m.image | default (printf "%s:%s" .Values.image.repository .Values.image.tag) }}
+          imagePullPolicy: Always
+          # npx is stripped from the runtime image, so invoke the Prisma CLI via the
+          # node_modules/.bin shim npm/pnpm always create (version-proof, unlike the
+          # package's internal build path). `migrate deploy` reads DATABASE_URL (injected
+          # below) via the datasource url in prisma/schema.prisma.
+          command: ["./node_modules/.bin/prisma", "migrate", "deploy"]
+          envFrom:
+            - secretRef:
+                name: {{ $secret }}
+          env:
+            # Prisma's schema engine writes temp files under HOME; keep it on the
+            # writable emptyDir so readOnlyRootFilesystem can stay on.
+            - name: HOME
+              value: /tmp
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
