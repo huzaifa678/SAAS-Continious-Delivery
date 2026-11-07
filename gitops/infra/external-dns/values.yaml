@@ -14,6 +14,12 @@ external-dns:
   sources:
     - gateway-httproute
     - gateway-grpcroute
+    # `service` lets external-dns read the AWS-LB-Controller-assigned NLB hostname
+    # straight from a LoadBalancer Service's .status (the nginx-gateway-lb Services),
+    # so the public NLB target is discovered automatically instead of being hardcoded
+    # as a per-gateway nlbTarget value. The gateway-* sources still serve the
+    # microservices (saas-gateway) that publish via the target annotation.
+    - service
   managedRecordTypes:
     - CNAME
     - A
