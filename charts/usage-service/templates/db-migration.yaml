@@ -74,6 +74,8 @@ spec:
                 secretKeyRef:
                   name: {{ $secret }}
                   key: host
+            # function-appdatabase now emits the "port" key in the connection Secret,
+            # so read it from there (single source of truth) like the other fields.
             - name: POSTGRES_PORT
               valueFrom:
                 secretKeyRef:
