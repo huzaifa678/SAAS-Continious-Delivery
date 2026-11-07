@@ -72,11 +72,16 @@ spec:
           - /bin/sh
           - -ec
           - | 
-            DB_HOST="$(cat /etc/database/host)" 
-            DB_PORT="$(cat /etc/database/port)" 
-            DB_NAME="$(cat /etc/database/db)" 
-            DB_USER="$(cat /etc/database/user)" 
-            DB_PASSWORD="$(cat /etc/database/password)" 
+            # Key names match the AppDatabase connection Secret that
+            # function-appdatabase writes: host / port / database / username / password.
+            # Liquibase needs a jdbc: URL, so we assemble it from the individual keys
+            # rather than the libpq "dsn" key. Port comes from the Secret now that the
+            # function emits it; fall back to the values default for older secrets.
+            DB_HOST="$(cat /etc/database/host)"
+            DB_PORT="$(cat /etc/database/port 2>/dev/null || echo '{{ $m.port | default 5432 }}')"
+            DB_NAME="$(cat /etc/database/database)"
+            DB_USER="$(cat /etc/database/username)"
+            DB_PASSWORD="$(cat /etc/database/password)"
             export LIQUIBASE_COMMAND_USERNAME="$DB_USER" 
             export LIQUIBASE_COMMAND_PASSWORD="$DB_PASSWORD" 
             export LIQUIBASE_COMMAND_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode={{ $m.sslmode | default "require" }}" 
