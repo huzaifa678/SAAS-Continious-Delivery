@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strings"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
@@ -119,12 +121,34 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 	if obs, err := request.GetObservedComposedResources(req); err == nil {
 		if r, ok := obs[resource.Name("role")]; ok {
 			cd := resource.ConnectionDetails{}
-			for src, dst := range map[string]string{"username": "username", "password": "password", "endpoint": "host"} {
+			// provider-sql's Role publishes username/password plus the endpoint it
+			// connected through; map `port` too (it was being dropped) so consumers
+			// don't have to hardcode it.
+			for src, dst := range map[string]string{"username": "username", "password": "password", "endpoint": "host", "port": "port"} {
 				if v, ok := r.ConnectionDetails[src]; ok {
 					cd[dst] = v
 				}
 			}
 			cd["database"] = []byte(databaseName)
+			// RDS PostgreSQL default when provider-sql didn't supply a port.
+			if len(cd["port"]) == 0 {
+				cd["port"] = []byte("5432")
+			}
+			// Single-key libpq/SQLAlchemy URL for consumers that take one connection
+			// string (e.g. Airflow AIRFLOW__DATABASE__SQL_ALCHEMY_CONN). RDS enforces
+			// TLS. If the host already carries ":port" use it as-is, else join them.
+			if host := string(cd["host"]); host != "" {
+				authority := host
+				if !strings.Contains(host, ":") {
+					authority = host + ":" + string(cd["port"])
+				}
+				cd["dsn"] = []byte(fmt.Sprintf(
+					"postgresql://%s:%s@%s/%s?sslmode=require",
+					url.QueryEscape(string(cd["username"])),
+					url.QueryEscape(string(cd["password"])),
+					authority, databaseName,
+				))
+			}
 			if dxr, err := request.GetDesiredCompositeResource(req); err == nil {
 				dxr.ConnectionDetails = cd
 				_ = response.SetDesiredCompositeResource(rsp, dxr)
