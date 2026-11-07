@@ -21,13 +21,6 @@ kind: Gateway
 metadata:
   name: backstage-gateway
   namespace: {{ .Release.Namespace }}
-  {{- with .Values.nlbTarget }}
-  annotations:
-    # external-dns publishes this record to the internet-facing nginx-gateway-lb NLB.
-    # NGF's own data-plane LB is internal and can't be annotated in this NGF version, so
-    # DNS points at the manual NLB — the same external-dns target pattern as saas-gateway.
-    external-dns.alpha.kubernetes.io/target: {{ . | quote }}
-  {{- end }}
 spec:
   gatewayClassName: nginx
   listeners:
@@ -46,6 +39,11 @@ kind: HTTPRoute
 metadata:
   name: backstage
   namespace: {{ .Release.Namespace }}
+  annotations:
+    # Let external-dns IGNORE this route: the gateway-* source would otherwise publish
+    # the host against NGF's own data-plane LB (internal). The record is published by the
+    # `service` source from the nginx-gateway-lb Service below (the public NLB) instead.
+    external-dns.alpha.kubernetes.io/controller: "none"
 spec:
   parentRefs:
     - name: backstage-gateway
@@ -62,6 +60,9 @@ metadata:
   name: nginx-gateway-lb
   namespace: {{ .Release.Namespace }}
   annotations:
+    # external-dns (service source) publishes this host as a CNAME to the NLB hostname
+    # the AWS LB Controller writes into .status.loadBalancer — no hardcoded nlbTarget.
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.host | quote }}
     # Managed by the AWS Load Balancer Controller. The legacy "nlb" value uses the
     # in-tree provider, which ignores aws-load-balancer-scheme and defaulted to an
     # INTERNAL NLB on private subnets. "external" honors the scheme and places the
@@ -69,17 +70,32 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-type: "external"
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "instance"
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    # Instance targets default to preserving the client IP, so the DATA packet reaches
+    # the node with the real client source — not matched by the VPC-scoped NodePort
+    # rule in modules/node-security-group, so the UI times out even though health
+    # checks (from the NLB's in-VPC ENIs) pass. Off = NLB SNATs to its in-VPC address,
+    # so the node SG rule matches real traffic too.
+    service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false
 spec:
   type: LoadBalancer
   selector:
     gateway.networking.k8s.io/gateway-name: backstage-gateway
   ports:
+    # NodePorts are pinned (values.nodePorts) so the infra node-SG rule can be a
+    # tight range instead of the whole 30000-32767 span. Unset -> k8s auto-assigns.
+    {{- $np := .Values.nodePorts | default dict }}
     - name: http
       port: 80
       targetPort: 80
       protocol: TCP
+      {{- with $np.http }}
+      nodePort: {{ . }}
+      {{- end }}
     - name: https
       port: 443
       targetPort: 443
       protocol: TCP
+      {{- with $np.https }}
+      nodePort: {{ . }}
+      {{- end }}
 {{- end }}

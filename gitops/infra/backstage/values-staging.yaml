@@ -3,8 +3,11 @@ image:
   tag: "sha-a884cfa6"
   repository: 533267178572.dkr.ecr.us-east-1.amazonaws.com/backstage-saas
 host: backstage.staging.freeeasycrypto.com
-# external-dns target: the internet-facing nginx-gateway-lb NLB.
-nlbTarget: k8s-backstag-nginxgat-da94255a87-230870342b9d1c90.elb.us-east-1.amazonaws.com
 replicas: 1
 gateway:
   enabled: true
+
+# Pinned NodePorts (see infra modules/node-security-group gateway_nodeport range).
+nodePorts:
+  http: 30104
+  https: 30105
