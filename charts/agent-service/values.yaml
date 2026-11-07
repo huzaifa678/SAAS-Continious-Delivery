@@ -101,24 +101,32 @@ keda:
       metadata:
         value: "70"
 
-# Crossplane-managed Postgres + Liquibase migrations.
-# PREREQUISITE: `enabled: true` needs an `rds-agent` ProviderConfig in the Terraform
-# gitops_contract (saas-services-infra) — unlike billing/usage/subscription, no rds-agent
-# instance exists yet, so this stays disabled until that upstream instance is provisioned.
+# Database provisioning + migrations.
+#
+# `enabled` (the Crossplane AppDatabase claim, templates/appdatabase.yaml) stays false:
+# agent-service's RDS DB/role already exist (saas-agent-db) and the app connects with the
+# SM-synced creds in the ExternalSecret above — not a Crossplane-managed owner role — so a
+# claim would create a split-brain owner. Leave it off unless the service is migrated onto
+# the AppDatabase contract (as billing/usage are).
+#
+# `migrations` DOES run: agent-service is Spring/JPA with ddl-auto=validate and ships no
+# in-image migrator, so Liquibase (templates/db-migration.yaml, an Argo CD Sync hook)
+# creates the baseline tables the entities validate against, BEFORE the Rollout. It
+# connects with the SAME creds the app uses (the ExternalSecret-synced Secret, keys
+# SPRING_DATASOURCE_URL / _USERNAME / _PASSWORD). Changelog:
+# charts/agent-service/migrations/changelog.sql.
 database:
   enabled: false
-  instance: agent            # maps to Crossplane ProviderConfig `rds-agent`
+  instance: agent            # (AppDatabase only) maps to Crossplane ProviderConfig `rds-agent`
   databaseName: agent_db
   owner: agent_app
   extensions:
-    - vector                 # pgvector, for conversation_embeddings (RAG)
-  # Liquibase runs as an Argo CD PreSync hook (templates/db-migration.yaml), migrating the
-  # DB before the new Rollout starts. Changelog: charts/agent-service/migrations/changelog.sql.
+    - vector                 # (AppDatabase only) pgvector, for conversation_embeddings (RAG)
   migrations:
-    enabled: false
+    enabled: true
     image: liquibase/liquibase@sha256:1673fc47b5c8b852e80ccbc5162e099eafc6230c55cf144c06f1d5173f7f9d3d
-    sslmode: require         # RDS enforces TLS; use "disable" only for a non-TLS local DB
+    sslmode: require         # appended to SPRING_DATASOURCE_URL; RDS supports TLS
     backoffLimit: 3
     activeDeadlineSeconds: 600
     ttlSecondsAfterFinished: 1800
-    # secretName: agent-service-db   # defaults to <svc>-db from the AppDatabase claim
+    # secretName: defaults to externalSecret.target.name (agent-service)

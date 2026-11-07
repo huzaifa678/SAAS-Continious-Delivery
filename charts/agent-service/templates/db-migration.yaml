@@ -1,10 +1,12 @@
-{{- if and .Values.database.enabled .Values.database.migrations.enabled }}
+{{- if .Values.database.migrations.enabled }}
 {{- $svc := "agent-service" }}
 {{- $m := .Values.database.migrations }}
-{{- $secret := $m.secretName | default (printf "%s-db" $svc) }}
+{{- $secret := $m.secretName | default .Values.externalSecret.target.name | default $svc }}
 ---
-# Liquibase changelog delivered as a ConfigMap. Rendered from charts/<svc>/migrations so
-# migrations are versioned in git alongside the chart. PreSync hook, applied before the Job.
+# Liquibase changelog delivered as a ConfigMap, rendered from charts/agent-service/migrations
+# so the schema is versioned in git alongside the chart. agent-service is Spring/JPA with
+# ddl-auto=validate and ships no in-image migrator, so Liquibase (external image) creates
+# the baseline tables the entities validate against.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -13,16 +15,24 @@ metadata:
   labels:
     app: {{ $svc }}
   annotations:
-    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook: Sync
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-wave: "-3"
 data:
   changelog.sql: |
 {{ .Files.Get "migrations/changelog.sql" | indent 4 }}
 ---
-# Argo CD PreSync hook: runs Liquibase to migrate the database BEFORE the new Rollout is
-# applied, so the app never starts against an un-migrated schema. Liquibase is idempotent
-# (tracks applied changeSets in DATABASECHANGELOG), so re-running each sync is a no-op.
+# Argo CD Sync hook: runs Liquibase to migrate the database BEFORE the new Rollout starts,
+# so the app never starts against an un-migrated schema (ddl-auto=validate would fail).
+# Liquibase is idempotent (tracks applied changeSets in DATABASECHANGELOG), so re-running
+# each sync is a no-op.
+#
+# Connects with the SAME credentials the app uses — the ExternalSecret-synced Secret
+# ({{ $secret }}, keys SPRING_DATASOURCE_URL / _USERNAME / _PASSWORD) — so migrated tables
+# are owned by and visible to the app's role (no Crossplane AppDatabase owner split).
+#
+# Wave -2 runs after the ExternalSecret and ConfigMap (wave -3) so the creds exist, and
+# before the Rollout (wave 0).
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -31,10 +41,10 @@ metadata:
   labels:
     app: {{ $svc }}
   annotations:
-    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook: Sync
     # Replace the previous Job each sync so it re-runs; keep it after success for logs.
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "-2"
 spec:
   backoffLimit: {{ $m.backoffLimit | default 3 }}
   activeDeadlineSeconds: {{ $m.activeDeadlineSeconds | default 600 }}
@@ -50,6 +60,9 @@ spec:
     spec:
       restartPolicy: Never
       automountServiceAccountToken: false
+      # Reuse the service SA so the pod matches the app's CiliumNetworkPolicy
+      # (egress to *.rds.amazonaws.com:5432 via ciliumEgress.rds).
+      serviceAccountName: {{ (.Values.serviceAccount | default dict).name | default $svc }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -57,37 +70,41 @@ spec:
         fsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
-      serviceAccountName: {{ (.Values.serviceAccount | default dict).name | default $svc }}
       containers:
         - name: liquibase
           image: {{ $m.image }}
           imagePullPolicy: Always
-          command: 
-          - /bin/sh
-          - -ec
-          - | 
-            DB_HOST="$(cat /etc/database/host)" 
-            DB_PORT="$(cat /etc/database/port)" 
-            DB_NAME="$(cat /etc/database/db)" 
-            DB_USER="$(cat /etc/database/user)" 
-            DB_PASSWORD="$(cat /etc/database/password)" 
-            export LIQUIBASE_COMMAND_USERNAME="$DB_USER" 
-            export LIQUIBASE_COMMAND_PASSWORD="$DB_PASSWORD" 
-            export LIQUIBASE_COMMAND_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode={{ $m.sslmode | default "require" }}" exec liquibase update
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              # The app's SPRING_DATASOURCE_URL is a plain jdbc:postgresql URL with no
+              # query string; add sslmode=require (RDS supports TLS) unless one is set.
+              case "$SPRING_DATASOURCE_URL" in
+                *\?*) URL="$SPRING_DATASOURCE_URL" ;;
+                *)    URL="${SPRING_DATASOURCE_URL}?sslmode={{ $m.sslmode | default "require" }}" ;;
+              esac
+              export LIQUIBASE_COMMAND_URL="$URL"
+              export LIQUIBASE_COMMAND_USERNAME="$SPRING_DATASOURCE_USERNAME"
+              export LIQUIBASE_COMMAND_PASSWORD="$SPRING_DATASOURCE_PASSWORD"
+              exec liquibase update
           env:
-            - name: DB_HOST
-              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: host } }
-            - name: DB_PORT
-              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: port } }
-            - name: DB_NAME
-              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: db } }
-            - name: LIQUIBASE_COMMAND_USERNAME
-              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: user } }
-            - name: LIQUIBASE_COMMAND_PASSWORD
-              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: password } }
-            # k8s substitutes $(DB_*) from the vars declared above.
-            - name: LIQUIBASE_COMMAND_URL
-              value: "jdbc:postgresql://$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode={{ $m.sslmode | default "require" }}"
+            # The same SM-synced keys agent-service/main.tf (infra) writes for the app.
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: SPRING_DATASOURCE_URL
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: SPRING_DATASOURCE_USERNAME
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: SPRING_DATASOURCE_PASSWORD
             - name: LIQUIBASE_COMMAND_CHANGELOG_FILE
               value: changelog.sql
             - name: LIQUIBASE_SEARCH_PATH
@@ -122,4 +139,6 @@ spec:
         - name: changelog
           configMap:
             name: {{ $svc }}-db-migrations
+        - name: tmp
+          emptyDir: {}
 {{- end }}

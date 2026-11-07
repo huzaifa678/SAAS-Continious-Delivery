@@ -8,6 +8,15 @@
 -- no-op where the object already exists and creates it on a fresh database. Liquibase
 -- records each changeSet in DATABASECHANGELOG either way — no manual changelog-sync needed.
 
+-- changeset agent-service:000-enable-pgvector
+-- pgvector backs the conversation_embeddings RAG store. langchain4j's
+-- PgVectorEmbeddingStore (createTable=true) also runs CREATE EXTENSION IF NOT EXISTS at
+-- runtime, but creating an extension needs an rds_superuser-capable role; provisioning it
+-- here (the migration runs as the RDS master user from SPRING_DATASOURCE_*) makes it a
+-- declarative GitOps step and keeps the app from being the only thing that can create it.
+-- Harmless if the extension already exists.
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- changeset agent-service:001-create-conversations
 CREATE TABLE IF NOT EXISTS conversations (
     id         uuid          PRIMARY KEY,
