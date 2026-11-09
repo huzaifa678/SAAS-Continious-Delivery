@@ -278,9 +278,17 @@ ahead of the role/secret regardless of wave arithmetic.
     (`database.enabled: false`, `migrations.enabled: true`).
 
   Wave order per service: ExternalSecret `-3`, migrate Job `-2`, Rollout `0`. Each
-  `values.yaml` gains a `database.migrations` block; `Chart.yaml` → `0.1.4`; auth and
-  subscription `values.schema.json` relaxed (`Database.required=[migrations]`,
-  `migrations.required=[enabled]`). All three charts `helm template` clean. **Written.**
+  `values.yaml` gains a full `database` block; `Chart.yaml` → `0.1.4`. The repo-wide CUE
+  `#Database` contract (`schemas/service/values.cue`, enforced by `make vet` and the
+  `check-schema` CI gate that regenerates each `values.schema.json` from it) requires
+  `enabled`/`instance`/`databaseName`/`owner` + the full `migrations` block on **every**
+  service — so auth/subscription **conform** rather than fork the schema: `enabled: false`
+  (no AppDatabase), `instance`/`databaseName`/`owner` recording the RDS mapping, and
+  `migrations.image: ""` (the Job defaults to the service image) + a valid but inert
+  `sslmode`. `make vet` passes 15/15, `make check-schema` clean, all three charts `helm
+  template` clean. **Written.** (An earlier attempt hand-edited the generated
+  `values.schema.json`; that drifts from CUE and fails `check-schema`, so it was reverted in
+  favour of conforming the values.)
 - **Fix [CD repo]:** `charts/auth-service/values.yaml` — add `ciliumEgress.rds: true` to the
   base values (staging already got it via #5, but the default lacked it). **Written.**
 - **Fix [service]:** `auth-service` `prisma/schema.prisma` — add `url = env("DATABASE_URL")`
@@ -325,8 +333,9 @@ ahead of the role/secret regardless of wave arithmetic.
   - gateway charts: `nlbTarget` removal, `external-dns` source, `preserve_client_ip`,
     pinned NodePorts (#2/#3/#4); `gitops/infra/external-dns/values.yaml`.
   - `charts/billing-service` + `charts/usage-service` `0.1.7` (#10).
-  - `charts/{auth,subscription,agent}-service` `0.1.4` — new `db-migration.yaml`, values,
-    `values.schema.json`, auth `ciliumEgress.rds` (#12).
+  - `charts/{auth,subscription,agent}-service` `0.1.4` — new `db-migration.yaml`, full
+    `database` values block, auth `ciliumEgress.rds`, agent `000-enable-pgvector`
+    changeset (#12/#13). `values.schema.json` is generated from CUE — not hand-edited.
   - Already committed this session: `85fce0b` (#1), `afaa7ed` (#5), `6e7bceb`/`f7d54c5`
     (#6), and the gateway LB/external-dns commits (#2).
 - **Rebuild + push the `auth-service` image** carrying the `schema.prisma` datasource url
