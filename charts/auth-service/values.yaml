@@ -107,10 +107,23 @@ keda:
 # ExternalSecret-synced Secret (externalSecret.target.name). No Crossplane AppDatabase:
 # the DB/role already exist in RDS and the app owns its tables via this role.
 database:
+  # auth-service does NOT use a Crossplane AppDatabase (no appdatabase.yaml template, and
+  # it connects with the SM-synced app secret, not an AppDatabase owner role). enabled is
+  # therefore inert here, but the repo-wide CUE #Database contract (schemas/service) still
+  # requires enabled/instance/databaseName/owner — so they record which RDS DB/role the
+  # service maps to. Keep in sync with saas-services-infra/layers/20-data.
+  enabled: false
+  instance: auth
+  databaseName: auth_db
+  owner: auth_user
   migrations:
     enabled: true
-    # image: defaults to image.repository:image.tag (the service image)
-    # secretName: defaults to externalSecret.target.name (auth-service)
+    # image "" → the db-migration Job defaults to image.repository:image.tag (the service
+    # image, which bundles the Prisma migrations); kept empty to avoid tag drift.
+    image: ""
+    # sslmode is inert for this service (Prisma reads sslmode from DATABASE_URL); set to a
+    # valid value only to satisfy the shared contract.
+    sslmode: require
     backoffLimit: 3
     activeDeadlineSeconds: 600
     ttlSecondsAfterFinished: 1800
