@@ -61,20 +61,42 @@ Almost every failure in this session traces to a handful of themes:
   `rpc error: code = ResourceExhausted desc = etcdserver: throttle: too many requests`
   against the `observability`, `microservices` **and** `addons` appsets at once. Karpenter
   was not getting nodes/pods created.
-- **Root cause:** the observability appset generated Application names with
-  `{{.path.basename}}-{{.metadata.labels.env}}`, and there are **two** `otel-collector`
-  directories — `gitops/observability/elk/otel-collector` and
+- **Root cause (a livelock, not a lock deadlock):** the observability appset generated
+  Application names with `{{.path.basename}}-{{.metadata.labels.env}}`, and there are
+  **two** `otel-collector` directories — `gitops/observability/elk/otel-collector` and
   `gitops/observability/grafana/otel-collector` — so both rendered the same name,
-  `otel-collector-staging`. ArgoCD rejects a duplicate-named ApplicationSet result and
-  **retries the reconcile continuously**; each attempt writes the appset status, and the
-  flood of status writes throttled etcd. Because etcd is the whole control plane's backing
-  store, the `ResourceExhausted` back-pressure spread to the other appsets and slowed the
-  API server generally — which is what stalled Karpenter (it provisions NodeClaims/pods
-  through that same API). A single naming collision cascaded into a cluster-wide slowdown.
+  `otel-collector-staging`. The chain:
+  - The appset controller validates the generated set, rejects the duplicate name, and
+    writes an `ErrorOccurred` condition to the ApplicationSet `.status` — a **permanent**,
+    deterministic error (the same two dirs render the same name every pass), so it never
+    self-clears the way a transient CRD-not-registered-yet error does.
+  - `.status` is a subresource but still a real write (controller → apiserver → **etcd**),
+    and etcd is MVCC+Raft: each accepted write is a new revision committed via a quorum
+    proposal + WAL fsync — not a cheap touch.
+  - The loop stays *hot* rather than backing off: the controller **watches** its own
+    ApplicationSet and the child Applications, so each status write is itself a change
+    event that re-enqueues the appset as a **fresh** work item, bypassing controller-runtime's
+    per-item exponential backoff. `observability`, `microservices` and `addons` were all
+    churning at once, on top of the application-controller already rewriting status for
+    dozens of `OutOfSync/Degraded` apps.
+  - etcd sheds load by **rejecting** writes (`etcdserver: too many requests`) once in-flight
+    proposals exceed its limit. The rejection doesn't calm the loop — it **feeds** it: a
+    throttled status write is *itself* an error, which returns from `Reconcile()` and
+    triggers another requeue → another write attempt. So two failure sources (permanent
+    duplicate name + throttled write) both spin the loop, and every attempt — whether it
+    lands a revision or gets rejected — still consumes an apiserver→etcd request slot. It's
+    the **attempt rate**, not "every failure persisting," that saturates etcd.
+  - Because etcd is the whole control plane's single backing store, that saturation rejects
+    writes **indiscriminately**: Karpenter provisions capacity by writing `NodeClaim`s and
+    updating node state through the same apiserver→etcd path, so its writes got rejected/
+    delayed and **no nodes/pods were created**. One cosmetic naming collision in one appset
+    livelocked a controller and degraded cluster-wide scheduling.
 - **Fix [CD repo]:** `appsets/observability.yaml` — name Applications
   `{{ default .path.basename .appName }}-{{.metadata.labels.env}}`, and give each collider
   an explicit `appName` in its `app.yaml` (`otel-collector-elk`, `otel-collector-grafana`).
-  Collision gone, reconcile loop stops, etcd pressure clears. **Committed** (`85fce0b`).
+  Removing the *permanent* validation error is what breaks the livelock: reconcile now
+  succeeds, the loop goes quiet, the write rate drops to baseline, and etcd recovers — so
+  Karpenter's writes get through again. **Committed** (`85fce0b`).
 
 ## 2. Hardcoded `nlbTarget` + unmanaged NLB cleanup — gateway target rework
 
