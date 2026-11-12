@@ -1,0 +1,112 @@
+---
+# Staging-only microservices appset.
+#
+# Split out of `appsets/microservices.yaml` so staging can run an ApplicationSet
+# RollingSync (progressive sync) that is scoped to the staging cluster ONLY.
+# RollingSync never crosses ApplicationSet boundaries, so a dev (or prod) app that
+# is OutOfSync or unhealthy can never gate/halt this rollout — only staging apps
+# gate staging apps.
+#
+# Promotion into staging is still by explicit gated PR (no argocd-image-updater
+# here; that patch lives only on the dev-labelled cluster in microservices.yaml).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: microservices-staging
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - matrix:
+        generators:
+          # Staging cluster only.
+          - clusters:
+              selector:
+                matchLabels:
+                  env: staging
+          # Service catalogue discovered from charts/* (same as microservices.yaml).
+          - git:
+              repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+              revision: main
+              directories:
+                - path: charts/*
+  # No RollingSync strategy today: one cluster per env + Argo Rollouts per-service
+  # canary already cover progressive delivery, so appset-level ordering would be a
+  # no-op here. The `env`/`service` labels on each generated Application (below) are
+  # kept as the prerequisite for turning RollingSync on later.
+  #
+  # TODO(multi-region): when staging (or prod) spans >1 cluster, uncomment the block
+  # below to roll region-by-region, gated on health. Prereqs before uncommenting:
+  #   1. Register each cluster secret with a `region` label (e.g. region=us-east-1).
+  #   2. Add `region: '{{.metadata.labels.region}}'` to template.metadata.labels so
+  #      the cluster's region label is copied onto the Application (RollingSync steps
+  #      match Application LABELS, not cluster labels).
+  #   3. Replace the example region values below with your real regions, canary first.
+  # strategy:
+  #   type: RollingSync
+  #   rollingSync:
+  #     steps:
+  #       # Canary region first; next step waits until all its apps are Healthy
+  #       # (Rollout at 100% stable + Prometheus analysis passed).
+  #       - matchExpressions:
+  #           - key: region
+  #             operator: In
+  #             values: [us-east-1]
+  #       # Remaining regions, once the canary region is Healthy.
+  #       - matchExpressions:
+  #           - key: region
+  #             operator: NotIn
+  #             values: [us-east-1]
+  template:
+    metadata:
+      name: '{{.path.basename}}-{{.metadata.labels.env}}'
+      namespace: argocd
+      # Labels are REQUIRED for RollingSync step matchExpressions above.
+      labels:
+        env: '{{.metadata.labels.env}}'
+        service: '{{.path.basename}}'
+        # TODO(multi-region): uncomment to enable the RollingSync stub above.
+        # region: '{{.metadata.labels.region}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "2"
+    spec:
+      project: default
+      sources:
+        # removing oci:// prefix from the repoURL
+        - repoURL: 533267178572.dkr.ecr.us-east-1.amazonaws.com/helm
+          chart: '{{.path.basename}}'
+          # Floating SemVer range: each app auto-resolves the latest 0.x of its own
+          # chart
+          targetRevision: ">=0.1.0 <1.0.0"
+          helm:
+            releaseName: '{{.path.basename}}'
+            valueFiles:
+              - '$values/charts/{{.path.basename}}/values.yaml'
+              - '$values/charts/{{.path.basename}}/values-{{.metadata.labels.env}}.yaml'
+        - repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: '{{.server}}'
+        namespace: saas-apps
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          # Server-side apply: avoids the client-side 3-way-merge + last-applied-
+          # configuration annotation issues. Matches the addons/observability appsets.
+          - ServerSideApply=true
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+      ignoreDifferences:
+        - group: argoproj.io
+          kind: Rollout
+          jsonPointers:
+            - /spec/replicas
+        - group: networking.istio.io
+          kind: VirtualService
+          jsonPointers:
+            - /spec/http
