@@ -1,0 +1,109 @@
+---
+# Prod-only microservices appset.
+#
+# Split per env (see also microservices-dev.yaml / microservices-staging.yaml) so
+# prod rolls out independently of dev/staging — RollingSync, once enabled, never
+# crosses ApplicationSet boundaries, so a dev/staging app can never gate prod.
+#
+# Promotion into prod is by explicit gated PR (no argocd-image-updater here; that
+# lives only in the dev appset).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: microservices-prod
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - matrix:
+        generators:
+          # Prod cluster(s) only.
+          - clusters:
+              selector:
+                matchLabels:
+                  env: prod
+          # Service catalogue discovered from charts/* (same as the other envs).
+          - git:
+              repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+              revision: main
+              directories:
+                - path: charts/*
+  # No RollingSync strategy today: a single prod cluster + Argo Rollouts per-service
+  # canary already cover progressive delivery. Prod is the PRIME candidate for the
+  # multi-region rollout below — this is where region-by-region gating pays off.
+  #
+  # TODO(multi-region): when prod spans >1 cluster, uncomment the block below to roll
+  # region-by-region, gated on health. Prereqs before uncommenting:
+  #   1. Register each cluster secret with a `region` label (e.g. region=us-east-1).
+  #   2. Add `region: '{{.metadata.labels.region}}'` to template.metadata.labels so
+  #      the cluster's region label is copied onto the Application (RollingSync steps
+  #      match Application LABELS, not cluster labels).
+  #   3. Replace the example region values below with your real regions, canary first.
+  # strategy:
+  #   type: RollingSync
+  #   rollingSync:
+  #     steps:
+  #       # Canary region first; next step waits until all its apps are Healthy
+  #       # (Rollout at 100% stable + Prometheus analysis passed).
+  #       - matchExpressions:
+  #           - key: region
+  #             operator: In
+  #             values: [us-east-1]
+  #       # Remaining regions, once the canary region is Healthy.
+  #       - matchExpressions:
+  #           - key: region
+  #             operator: NotIn
+  #             values: [us-east-1]
+  template:
+    metadata:
+      name: '{{.path.basename}}-{{.metadata.labels.env}}'
+      namespace: argocd
+      # Labels are the prerequisite for turning RollingSync on later.
+      labels:
+        env: '{{.metadata.labels.env}}'
+        service: '{{.path.basename}}'
+        # TODO(multi-region): uncomment to enable the RollingSync stub above.
+        # region: '{{.metadata.labels.region}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "2"
+    spec:
+      project: default
+      sources:
+        # removing oci:// prefix from the repoURL
+        - repoURL: 533267178572.dkr.ecr.us-east-1.amazonaws.com/helm
+          chart: '{{.path.basename}}'
+          # Floating SemVer range: each app auto-resolves the latest 0.x of its own
+          # chart
+          targetRevision: ">=0.1.0 <1.0.0"
+          helm:
+            releaseName: '{{.path.basename}}'
+            valueFiles:
+              - '$values/charts/{{.path.basename}}/values.yaml'
+              - '$values/charts/{{.path.basename}}/values-{{.metadata.labels.env}}.yaml'
+        - repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: '{{.server}}'
+        namespace: saas-apps
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          # Server-side apply: avoids the client-side 3-way-merge + last-applied-
+          # configuration annotation issues. Matches the addons/observability appsets.
+          - ServerSideApply=true
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+      ignoreDifferences:
+        - group: argoproj.io
+          kind: Rollout
+          jsonPointers:
+            - /spec/replicas
+        - group: networking.istio.io
+          kind: VirtualService
+          jsonPointers:
+            - /spec/http
