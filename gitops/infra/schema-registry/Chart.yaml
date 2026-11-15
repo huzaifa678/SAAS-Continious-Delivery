@@ -1,0 +1,12 @@
+---
+apiVersion: v2
+name: schema-registry
+description: >-
+  Apicurio Registry (Confluent-compatible API) cluster addon. Provides the HTTP
+  schema registry the Avro producers/consumers need — billing, subscription, and
+  the usage ETL all use Confluent-protocol clients (SCHEMA_REGISTRY_URL), which
+  AWS Glue (ARN-only) cannot serve. Self-contained chart (no upstream dependency):
+  a single Deployment + Service exposing the `/apis/ccompat/v7` endpoint.
+type: application
+version: 0.1.0
+appVersion: "2.6.5.Final"

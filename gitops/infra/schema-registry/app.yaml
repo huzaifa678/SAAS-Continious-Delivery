@@ -1,0 +1,5 @@
+# Git-files generator config for the flattened addons ApplicationSet.
+# Early-ish wave so the registry is up before the Avro producers/consumers
+# reconcile; producers retry registration anyway, so ordering is best-effort.
+namespace: schema-registry
+syncWave: "1"

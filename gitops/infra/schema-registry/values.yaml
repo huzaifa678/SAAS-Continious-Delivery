@@ -1,0 +1,30 @@
+---
+# Apicurio Registry — memory storage (stateless). Fine for staging: the Avro
+# producers auto-register schemas on publish, so a restart self-heals on the next
+# produce. For prod durability switch to the SQL or KafkaSQL storage variant
+# (apicurio-registry-sql + an AppDatabase claim, or apicurio-registry-kafkasql).
+image:
+  repository: apicurio/apicurio-registry-mem
+  tag: "2.6.5.Final"
+  pullPolicy: IfNotPresent
+
+replicas: 1
+
+service:
+  port: 8080
+
+# Quarkus/SmallRye health endpoints exposed by Apicurio.
+probes:
+  livenessPath: /health/live
+  readinessPath: /health/ready
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 768Mi
+
+# Apicurio reads config from env; mem storage needs none. CORS is off by default.
+extraEnv: []
