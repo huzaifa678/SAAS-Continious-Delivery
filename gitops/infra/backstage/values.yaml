@@ -60,7 +60,7 @@ secretGeneration:
   ttlSecondsAfterFinished: 1800
   keycloak:
     namespace: keycloak
-    url: http://keycloak.keycloak.svc.cluster.local
+    url: http://keycloak-http.keycloak.svc.cluster.local
     realm: saas                       # must match the infra backstage module's keycloak_realm
     clientId: backstage               # must match keycloak_client_id
     adminSecret: keycloak-admin-secret
