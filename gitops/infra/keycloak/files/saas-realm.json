@@ -57,6 +57,18 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
       "clientAuthenticatorType": "client-secret"
+    },
+    {
+      "clientId": "saas-e2e",
+      "name": "SAAS E2E Smoke Runner",
+      "description": "client_credentials client used by the cross-service E2E smoke runner to mint a JWT the api-gateway accepts.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "clientAuthenticatorType": "client-secret"
     }
   ],
   "defaultDefaultClientScopes": [
