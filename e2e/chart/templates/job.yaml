@@ -1,0 +1,100 @@
+---
+# The e2e smoke runner, delivered as an ArgoCD PostSync hook: it runs AFTER the
+# application's own resources sync, and because the `e2e` Application sits in a
+# later sync-wave than the microservices appset, it runs after the services are
+# Healthy. `BeforeHookCreation` deletes the previous run's Job so every sync
+# re-executes the suite (plain Jobs with an unchanged manifest would not re-run).
+# A non-zero exit fails the hook -> the Application goes Degraded -> the bad
+# deploy is visible in ArgoCD.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "saas-e2e.fullname" . }}
+  labels:
+    {{- include "saas-e2e.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: {{ .Values.job.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.job.activeDeadlineSeconds }}
+  ttlSecondsAfterFinished: {{ .Values.job.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "saas-e2e.labels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "saas-e2e.serviceAccountName" . }}
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: e2e
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            {{- toYaml .Values.pytestArgs | nindent 12 }}
+          env:
+            - name: E2E_GATEWAY_URL
+              value: {{ .Values.config.gatewayUrl | quote }}
+            - name: E2E_KEYCLOAK_URL
+              value: {{ .Values.config.keycloakUrl | quote }}
+            - name: E2E_KEYCLOAK_REALM
+              value: {{ .Values.config.keycloakRealm | quote }}
+            - name: E2E_KAFKA_TOPIC
+              value: {{ .Values.config.kafkaTopic | quote }}
+            - name: E2E_KAFKA_SECURITY
+              value: {{ .Values.config.kafkaSecurity | quote }}
+            {{- with .Values.config.schemaRegistryUrl }}
+            - name: E2E_SCHEMA_REGISTRY_URL
+              value: {{ . | quote }}
+            {{- end }}
+            - name: E2E_AWS_REGION
+              value: {{ .Values.config.awsRegion | quote }}
+            - name: E2E_AGENT_MODEL
+              value: {{ .Values.config.agentModel | quote }}
+            - name: E2E_AGENT_PROVIDER
+              value: {{ .Values.config.agentProvider | quote }}
+            - name: E2E_PIPELINE_TIMEOUT
+              value: {{ .Values.config.pipelineTimeout | quote }}
+            - name: E2E_VERIFY_TLS
+              value: {{ .Values.config.verifyTls | quote }}
+          envFrom:
+            {{- if .Values.keycloakClientGen.enabled }}
+            # Generated in-cluster by the PreSync hook (wave -2), so it already
+            # exists by the time this PostSync Job runs.
+            - secretRef:
+                name: {{ .Values.keycloakClientGen.targetSecret }}
+            {{- end }}
+            {{- if .Values.externalSecret.enabled }}
+            # Kafka bootstrap (ESO). Optional: the usage-ETL smoke self-skips
+            # until a schema registry is wired, so a cold ESO refresh never
+            # blocks the synchronous HTTP smokes.
+            - secretRef:
+                name: {{ include "saas-e2e.fullname" . }}-env
+                optional: true
+            {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: results
+              mountPath: /tmp/results
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.job.resources | nindent 12 }}
+      volumes:
+        - name: results
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

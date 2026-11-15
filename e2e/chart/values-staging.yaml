@@ -1,0 +1,7 @@
+---
+image:
+  tag: "latest"
+
+config:
+  kafkaSecurity: "MSK_IAM"
+  awsRegion: "us-east-1"

@@ -1,0 +1,9 @@
+---
+apiVersion: v2
+name: saas-e2e
+description: >-
+  Cross-service end-to-end smoke runner. Delivered by the `e2e` ApplicationSet
+  and executed as an ArgoCD PostSync hook after the microservices sync Healthy.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

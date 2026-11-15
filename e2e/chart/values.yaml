@@ -1,0 +1,84 @@
+---
+# Defaults; per-env overrides live in values-<env>.yaml.
+
+nameOverride: ""
+fullnameOverride: "saas-e2e"
+
+image:
+  repository: "533267178572.dkr.ecr.us-east-1.amazonaws.com/saas-e2e"
+  # Promoted by the saas-e2e CI git-writeback (per env file).
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+pytestArgs:
+  - "-m"
+  - "smoke"
+  - "-p"
+  - "no:cacheprovider"          # readOnlyRootFilesystem: no .pytest_cache writes
+  - "--junitxml=/tmp/results/report.xml"
+
+serviceAccount:
+  create: true
+  name: saas-e2e
+  annotations: {}
+
+# Non-secret config injected as env.
+config:
+  gatewayUrl: "http://saas-api-service.saas-apps.svc.cluster.local"
+  keycloakUrl: "http://keycloak-http.keycloak.svc.cluster.local"
+  keycloakRealm: "saas"
+  kafkaTopic: "billing.usage-charge.created"
+  kafkaSecurity: "MSK_IAM"     # PLAINTEXT only for local compose
+  # Confluent-compatible registry (gitops/infra/schema-registry). Setting this
+  # activates the usage-ETL smoke (it self-skips when empty).
+  schemaRegistryUrl: "http://schema-registry.schema-registry.svc.cluster.local:8080/apis/ccompat/v7"
+  awsRegion: "us-east-1"
+  agentModel: "gpt-4o-mini"
+  agentProvider: "openai"
+  pipelineTimeout: "300"
+  verifyTls: "true"
+
+keycloakClientGen:
+  enabled: true
+  image: alpine/k8s:1.31.1
+  targetSecret: saas-e2e-kc       # holds the generated client id + secret
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 3600
+  keycloak:
+    namespace: keycloak
+    url: http://keycloak-http.keycloak.svc.cluster.local
+    realm: saas
+    clientId: saas-e2e            # must match the realm-import client
+    adminSecret: keycloak-admin-secret
+
+# Infra-derived, non-Keycloak values sourced from AWS Secrets Manager via ESO.
+# Kafka only — Keycloak creds come from keycloakClientGen above.
+externalSecret:
+  enabled: true
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  remoteKey: "saas/e2e"        
+                               
+  # Logical secret key -> property in the SecretsManager JSON.
+  data:
+    E2E_KAFKA_BOOTSTRAP: kafka_bootstrap
+    E2E_SCHEMA_REGISTRY_URL: schema_registry_url
+
+job:
+  backoffLimit: 0              # a smoke failure is a failure; don't retry-mask it
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 3600
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Istio sidecar must exit so the Job can complete; opt out of injection.
+podAnnotations:
+  sidecar.istio.io/inject: "false"

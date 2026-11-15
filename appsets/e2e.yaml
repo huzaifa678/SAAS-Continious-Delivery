@@ -1,0 +1,56 @@
+---
+# E2E smoke runner appset — STAGING ONLY (the test-equivalent env for now).
+#
+# Scoped to the staging cluster so it can never run against dev or prod. The
+# generated Application sits in sync-wave "3" — one wave after the microservices
+# appset (wave "2") and the gateway (wave "1") — so by the time this app syncs,
+# the services it smokes are already applied. The actual test run is a PostSync
+# hook Job inside the chart (see e2e/chart/templates/job.yaml), so it executes
+# after this app's own resources reconcile, and re-runs on every sync.
+#
+# A failed smoke => the hook Job fails => this Application reports Degraded,
+# surfacing a bad staging deploy in the ArgoCD UI without touching the services.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: e2e
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            env: staging
+  template:
+    metadata:
+      name: 'e2e-{{.metadata.labels.env}}'
+      namespace: argocd
+      annotations:
+        # After microservices (wave 2) and gateway (wave 1).
+        argocd.argoproj.io/sync-wave: "3"
+      labels:
+        env: '{{.metadata.labels.env}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/huzaifa678/SAAS-Continious-Delivery.git
+        targetRevision: main
+        path: e2e/chart
+        helm:
+          releaseName: saas-e2e
+          valueFiles:
+            - values.yaml
+            - values-{{.metadata.labels.env}}.yaml
+      destination:
+        server: '{{.server}}'
+        namespace: saas-apps
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - ApplyOutOfSyncOnly=true
