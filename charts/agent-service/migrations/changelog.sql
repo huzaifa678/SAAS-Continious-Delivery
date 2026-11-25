@@ -145,3 +145,25 @@ CREATE TABLE IF NOT EXISTS conversation_snapshot (
     state        jsonb        NOT NULL,
     taken_at     timestamptz  NOT NULL
 );
+
+-- changeset agent-service:011-create-idempotency-keys
+-- Request-idempotency store for unsafe, side-effecting operations (an agent run spends on the
+-- LLM). A key is reserved IN_PROGRESS before the work starts and marked COMPLETED — pointing at
+-- the resulting agent_executions row — once it succeeds, so a retry replays the recorded result
+-- instead of re-running. expires_at bounds a stuck reservation: a crashed run's IN_PROGRESS row
+-- becomes reclaimable after it, so a later retry is not blocked forever. Column names/types match
+-- IdempotencyKeyEntity (com.project.agent.adapter.out.persistence.idempotency) so ddl-auto=validate passes.
+CREATE TABLE IF NOT EXISTS idempotency_keys (
+    idempotency_key varchar(200)  PRIMARY KEY,
+    fingerprint     varchar(64)   NOT NULL,
+    status          varchar(16)   NOT NULL,
+    result_id       uuid,
+    expires_at      timestamptz   NOT NULL,
+    created_at      timestamptz   NOT NULL,
+    updated_at      timestamptz   NOT NULL
+);
+
+-- changeset agent-service:012-index-idempotency-keys-expiry
+-- Backs reclaiming expired IN_PROGRESS reservations (and a future TTL cleanup job).
+CREATE INDEX IF NOT EXISTS idempotency_keys_expires_at_idx
+    ON idempotency_keys (expires_at);
